@@ -171,6 +171,9 @@ adaptive-demand-forecasting
 ├── data
 │   └── retail dataset
 │
+|── notebooks
+│   └── forecasting_analysis
+|
 ├── src
 │   ├── data_loader
 │   ├── segmentation
