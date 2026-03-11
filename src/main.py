@@ -37,32 +37,17 @@ if __name__ == "__main__":
     print("\nStable Segment Results:")
     print(stable_results)
 
-    seasonal_results = evaluate_segment(
-        df,
-        segmented_df,
-        "seasonal_stable",
-        naive_last_value_forecast
-    )
+    seasonal_results = evaluate_segment( df, segmented_df, "seasonal_stable", naive_last_value_forecast)
 
     print("\nSeasonal Stable Segment Results:")
     print(seasonal_results)
 
-    ses_results = evaluate_segment(
-    df,
-    segmented_df,
-    "stable",
-    ses_forecast
-    )
+    ses_results = evaluate_segment( df, segmented_df, "stable", ses_forecast )
 
     print("\nSES Stable Segment Results:")
     print(ses_results)
 
-    hw_results = evaluate_segment(
-    df,
-    segmented_df,
-    "seasonal_stable",
-    holt_winters_forecast
-    )
+    hw_results = evaluate_segment( df, segmented_df, "seasonal_stable", holt_winters_forecast )
 
     print("\nHolt-Winters Seasonal Segment Results:")
     print(hw_results)
@@ -163,4 +148,5 @@ ensemble_wmape = np.sum(np.abs(y_test - ensemble_preds)) / np.sum(y_test)
 
 print("\nEnsemble Results:")
 print("MAE:", ensemble_mae)
+
 print("WMAPE:", ensemble_wmape)
