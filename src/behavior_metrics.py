@@ -80,14 +80,13 @@ def compute_behavior_metrics(df):
 
 def assign_behavior_tags(metrics_df):
 
-    # --- Compute dataset aware volatility thresholds ---
+    # Compute dataset aware volatility thresholds 
     low_threshold = metrics_df["volatility_cv"].quantile(0.33)
     high_threshold = metrics_df["volatility_cv"].quantile(0.66)
 
     seasonal_cutoff = metrics_df["seasonality_corr"].quantile(0.75)
 
     tags = []
-
     for _, row in metrics_df.iterrows():
 
         # Rule-based structural tags
@@ -134,7 +133,6 @@ def cluster_continuous_products(tagged_df, n_clusters=3):
     continuous_df["cluster_label"] = clusters
 
     return continuous_df
-
 
 
 def assign_final_segment(tagged_df):

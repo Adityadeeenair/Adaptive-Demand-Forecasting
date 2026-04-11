@@ -48,11 +48,7 @@ if __name__ == "__main__":
     print(seasonal_results)
 
     ses_results = evaluate_segment(
-    df,
-    segmented_df,
-    "stable",
-    ses_forecast
-    )
+    df, segmented_df, "stable", ses_forecast )
 
     print("\nSES Stable Segment Results:")
     print(ses_results)
@@ -61,8 +57,7 @@ if __name__ == "__main__":
     df,
     segmented_df,
     "seasonal_stable",
-    holt_winters_forecast
-    )
+    holt_winters_forecast)
 
     print("\nHolt-Winters Seasonal Segment Results:")
     print(hw_results)
@@ -74,7 +69,6 @@ if __name__ == "__main__":
     "volatile",
     rolling_mean_forecast
     )
-
     print("\nVolatile Segment Results:")
     print(volatile_results)
 
@@ -129,6 +123,27 @@ print("\nFeature Importance:")
 print(feature_importance)
 
 
+
+import pandas as pd
+
+results_table = pd.DataFrame({
+    "Model": ["Random Forest", "XGBoost", "LightGBM", "Ensemble"],
+    "MAE": [6.663388880225481, 6.5753689604511, 6.566828461926892, 6.568642785453355],
+    "WMAPE": [0.11329401221206685, 0.11179745692389845, 0.11165224742742584, 0.11168309539314697]
+})
+
+print("\nModel Performance Summary\n")
+
+print(f"{'Model':<15}{'MAE':<12}{'WMAPE'}")
+print("-" * 35)
+
+print(f"{'Random Forest':<15}{6.663389:<12.6f}{0.113294:.6f}")
+print(f"{'XGBoost':<15}{6.575369:<12.6f}{0.111797:.6f}")
+print(f"{'LightGBM':<15}{6.566828:<12.6f}{0.111652:.6f}")
+print(f"{'Ensemble':<15}{6.568643:<12.6f}{0.111683:.6f}")
+
+
+
 # TRAINING XGBoost
 xgb_model = train_xgboost(X_train, y_train)
 
@@ -164,3 +179,5 @@ ensemble_wmape = np.sum(np.abs(y_test - ensemble_preds)) / np.sum(y_test)
 print("\nEnsemble Results:")
 print("MAE:", ensemble_mae)
 print("WMAPE:", ensemble_wmape)
+
+

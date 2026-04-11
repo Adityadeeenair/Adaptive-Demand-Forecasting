@@ -1,0 +1,196 @@
+# =============================================================
+#  ForecastIQ — Central Configuration
+#  Every parameter for data, features, models, and paths
+#  lives here. No hardcoded values anywhere in Python files.
+# =============================================================
+
+# -------------------------------------------------------------
+# 1. PATHS  (relative to project root)
+# -------------------------------------------------------------
+paths:
+  raw_data:       "data/retail_raw/train.csv"
+  processed_data: "data/processed/ml_ready.parquet"
+  uploads_dir:    "data/uploads/"
+  saved_models:   "backend/saved_models/"
+  logs:           "backend/logs/forecastiq.log"
+
+# -------------------------------------------------------------
+# 2. DATA SCHEMA
+# -------------------------------------------------------------
+data:
+  required_columns:       ["date", "store", "item", "sales"]
+  date_column:            "date"
+  target_column:          "sales"
+  store_column:           "store"
+  item_column:            "item"
+  product_id_col:         "product_id"
+  date_format:            "%Y-%m-%d"
+  min_rows_per_product:   60
+
+# -------------------------------------------------------------
+# 3. FEATURE ENGINEERING
+# -------------------------------------------------------------
+features:
+  lag_windows:      [1, 7, 14, 28, 365]
+  rolling_windows:  [7, 14, 28]
+  calendar_features:
+    - day_of_week
+    - week_of_year
+    - month_of_year
+    - quarter
+    - year
+    - is_weekend
+  categorical_cols: ["store", "item"]
+  # Exact columns fed to every ML model — order matters
+  feature_list:
+    - store
+    - item
+    - lag_1
+    - lag_7
+    - lag_14
+    - lag_28
+    - rolling_mean_7
+    - rolling_mean_14
+    - rolling_mean_28
+    - rolling_std_7
+    - day_of_week
+    - week_of_year
+    - month_of_year
+    - quarter
+    - year
+    - is_weekend
+
+# -------------------------------------------------------------
+# 4. DEMAND SEGMENTATION THRESHOLDS
+# -------------------------------------------------------------
+segmentation:
+  intermittent_zero_ratio:  0.40
+  trending_slope_threshold: 0.025
+  seasonality_quantile:     0.75
+  volatility_low_quantile:  0.33
+  volatility_high_quantile: 0.66
+
+# -------------------------------------------------------------
+# 5. TRAIN / TEST SPLIT
+# -------------------------------------------------------------
+split:
+  test_cutoff_date: "2017-01-01"
+  cv_n_splits:      5
+  cv_gap:           0
+  eval_horizon:     30
+
+# -------------------------------------------------------------
+# 6. MODEL HYPERPARAMETERS  (Optuna overrides these)
+# -------------------------------------------------------------
+models:
+
+  random_forest:
+    n_estimators:     100
+    max_depth:        10
+    min_samples_leaf: 4
+    n_jobs:           -1
+    random_state:     42
+
+  xgboost:
+    n_estimators:     200
+    max_depth:        6
+    learning_rate:    0.05
+    subsample:        0.8
+    colsample_bytree: 0.8
+    min_child_weight: 3
+    n_jobs:           -1
+    random_state:     42
+    verbosity:        0
+
+  lightgbm:
+    n_estimators:      200
+    max_depth:         6
+    learning_rate:     0.05
+    subsample:         0.8
+    colsample_bytree:  0.8
+    min_child_samples: 20
+    random_state:      42
+    verbose:           -1
+
+  # Quantile models for prediction intervals (80% band)
+  lightgbm_lower:
+    objective:    "quantile"
+    alpha:        0.10
+    n_estimators: 200
+    max_depth:    6
+    learning_rate: 0.05
+    random_state: 42
+    verbose:      -1
+
+  lightgbm_upper:
+    objective:    "quantile"
+    alpha:        0.90
+    n_estimators: 200
+    max_depth:    6
+    learning_rate: 0.05
+    random_state: 42
+    verbose:      -1
+
+# -------------------------------------------------------------
+# 7. OPTUNA HYPERPARAMETER TUNING
+# -------------------------------------------------------------
+optuna:
+  enabled:          true
+  n_trials:         40
+  timeout_seconds:  300
+  models_to_tune:   ["xgboost", "lightgbm"]
+
+  xgboost_search_space:
+    n_estimators:     [100, 500]
+    max_depth:        [3, 10]
+    learning_rate:    [0.01, 0.2]
+    subsample:        [0.6, 1.0]
+    colsample_bytree: [0.6, 1.0]
+    min_child_weight: [1, 10]
+
+  lightgbm_search_space:
+    n_estimators:      [100, 500]
+    max_depth:         [3, 10]
+    learning_rate:     [0.01, 0.2]
+    subsample:         [0.6, 1.0]
+    colsample_bytree:  [0.6, 1.0]
+    min_child_samples: [10, 100]
+
+# -------------------------------------------------------------
+# 8. ENSEMBLE
+# -------------------------------------------------------------
+ensemble:
+  method:      "stacking"    # "stacking" or "weighted"
+  meta_model:  "ridge"
+  base_models: ["random_forest", "xgboost", "lightgbm"]
+
+  # Only used when method = "weighted"
+  static_weights:
+    random_forest: 0.25
+    xgboost:       0.35
+    lightgbm:      0.40
+
+# -------------------------------------------------------------
+# 9. BASELINE STATISTICAL MODELS
+# -------------------------------------------------------------
+baseline:
+  ses_smoothing_level:   null
+  holt_winters_seasonal: "add"
+  holt_winters_periods:  7
+  rolling_mean_window:   7
+
+# -------------------------------------------------------------
+# 10. FORECAST HORIZONS  (days)
+# -------------------------------------------------------------
+forecast:
+  available_horizons: [7, 14, 30, 60, 90]
+  default_horizon:    30
+
+# -------------------------------------------------------------
+# 11. LOGGING
+# -------------------------------------------------------------
+logging:
+  level:        "INFO"
+  format:       "text"      # "text" for dev, "json" for prod
+  rotate_mb:    10
+  backup_count: 3
