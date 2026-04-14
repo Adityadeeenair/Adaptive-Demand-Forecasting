@@ -1,8 +1,12 @@
-export const fmtDate = (str) =>
-  new Date(str).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+export const fmtDate = (str) => {
+  const [y, m, d] = str.split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+}
 
-export const fmtShortDate = (str) =>
-  new Date(str).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+export const fmtShortDate = (str) => {
+  const [y, m, d] = str.split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+}
 
 export const fmtNum = (n, decimals = 1) =>
   n == null ? '—' : Number(n).toFixed(decimals)

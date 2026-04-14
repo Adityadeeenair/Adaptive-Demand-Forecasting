@@ -7,44 +7,87 @@ import { MODELS } from './ModelToggle'
 
 const MODEL_COLORS = Object.fromEntries(MODELS.map(m => [m.key, m.color]))
 
-const CustomTooltip = ({ active, payload, label, showAll, activeModel }) => {
+
+const buildChartData = (forecast, activeModel, showAll) => {
+  const mp          = forecast.model_predictions || {}
+  const activePreds = mp[activeModel] || forecast.point_forecast
+  const rows        = []
+
+  // History rows
+  forecast.history_dates.forEach((isoDate, i) => {
+    rows.push({
+      idx:     i,
+      isoDate,
+      actual:  forecast.history_sales[i],
+      segment: 'history',
+    })
+  })
+
+  const splitIdx = rows.length - 1 // index of last history point
+
+  // Forecast rows — start AFTER last history index, no duplicate date
+  forecast.forecast_dates.forEach((isoDate, i) => {
+    const row = {
+      idx:      rows.length,
+      isoDate,
+      forecast: activePreds[i],
+      lower:    forecast.lower_bound[i],
+      upper:    forecast.upper_bound[i],
+      segment:  'forecast',
+    }
+    if (showAll) {
+      MODELS.forEach(({ key }) => { if (mp[key]) row[key] = mp[key][i] })
+    }
+    rows.push(row)
+  })
+
+  return { rows, splitIdx }
+}
+
+const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null
+  const row    = payload[0]?.payload
   const actual = payload.find(p => p.dataKey === 'actual')
+
   return (
     <div style={{
-      background: 'var(--bg-elevated)',
-      border: '1px solid var(--border-light)',
+      background:   'var(--bg-elevated)',
+      border:       '1px solid var(--border-light)',
       borderRadius: 'var(--radius-md)',
-      padding: '10px 14px',
-      boxShadow: 'var(--shadow-md)',
-      minWidth: 170,
+      padding:      '10px 14px',
+      boxShadow:    'var(--shadow-md)',
+      minWidth:     170,
     }}>
-      <p style={{ fontSize: 11, fontFamily: 'var(--font-display)', color: 'var(--text-tertiary)', marginBottom: 8 }}>{label}</p>
+      <p style={{ fontSize: 11, fontFamily: 'var(--font-display)', color: 'var(--text-tertiary)', marginBottom: 8 }}>
+        {row?.isoDate ? fmtShortDate(row.isoDate) : label}
+      </p>
+
       {actual?.value != null && (
         <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>
           Actual <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{fmtNum(actual.value)}</span>
         </p>
       )}
-      {showAll
-        ? MODELS.map(({ key, label: mLabel, color }) => {
-            const entry = payload.find(p => p.dataKey === key)
-            if (!entry?.value) return null
-            return (
-              <p key={key} style={{ fontSize: 12, color }}>
-                {mLabel} <span style={{ fontWeight: 600 }}>{fmtNum(entry.value)}</span>
-              </p>
-            )
-          })
-        : payload.filter(p => p.dataKey === 'forecast').map(p => (
-            <p key="f" style={{ fontSize: 12, color: MODEL_COLORS[activeModel] || 'var(--amber)' }}>
-              Forecast <span style={{ fontWeight: 600 }}>{fmtNum(p.value)}</span>
-            </p>
-          ))
-      }
+
+      {payload.filter(p => p.dataKey === 'forecast').map(p => (
+        <p key="f" style={{ fontSize: 12, color: 'var(--amber)' }}>
+          Forecast <span style={{ fontWeight: 600 }}>{fmtNum(p.value)}</span>
+        </p>
+      ))}
+
+      {MODELS.filter(({ key }) => key !== 'actual').map(({ key, label: mLabel, color }) => {
+        const entry = payload.find(p => p.dataKey === key)
+        if (!entry?.value) return null
+        return (
+          <p key={key} style={{ fontSize: 12, color }}>
+            {mLabel} <span style={{ fontWeight: 600 }}>{fmtNum(entry.value)}</span>
+          </p>
+        )
+      })}
+
       {(() => {
         const lo = payload.find(p => p.dataKey === 'lower')
         const hi = payload.find(p => p.dataKey === 'upper')
-        if (lo?.value && hi?.value) return (
+        if (lo?.value != null && hi?.value != null) return (
           <p style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 4 }}>
             80% band {fmtNum(lo.value)} – {fmtNum(hi.value)}
           </p>
@@ -61,34 +104,23 @@ export default function ForecastChart({ forecast, activeModel = 'ensemble', show
     </div>
   )
 
-  const mp = forecast.model_predictions || {}
-  const activePreds = mp[activeModel] || forecast.point_forecast
+  const { rows, splitIdx } = buildChartData(forecast, activeModel, showAll)
+  const activeColor        = MODEL_COLORS[activeModel] || 'var(--amber)'
 
-  const historyData = forecast.history_dates.map((d, i) => ({
-    date: fmtShortDate(d), actual: forecast.history_sales[i],
-  }))
-
-  const forecastData = forecast.forecast_dates.map((d, i) => {
-    const row = {
-      date:     fmtShortDate(d),
-      forecast: activePreds[i],
-      lower:    forecast.lower_bound[i],
-      upper:    forecast.upper_bound[i],
-    }
-    if (showAll) {
-      MODELS.forEach(({ key }) => { if (mp[key]) row[key] = mp[key][i] })
-    }
-    return row
-  })
-
-  const splitDate = fmtShortDate(forecast.history_dates.at(-1))
-  const data = [...historyData, { date: splitDate, isDivider: true }, ...forecastData]
-  const activeColor = MODEL_COLORS[activeModel] || 'var(--amber)'
+  // Determine how many ticks to show based on data length
+  const tickCount  = Math.min(10, rows.length)
+  const tickStep   = Math.floor(rows.length / tickCount)
+  const tickIdxs   = new Set(
+    Array.from({ length: tickCount }, (_, i) => Math.min(i * tickStep, rows.length - 1))
+  )
+  tickIdxs.add(0)
+  tickIdxs.add(rows.length - 1)
+  const ticks = [...tickIdxs].sort((a, b) => a - b)
 
   return (
     <div style={{ width: '100%', height: 360 }}>
       <ResponsiveContainer>
-        <ComposedChart data={data} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
+        <ComposedChart data={rows} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
           <defs>
             <linearGradient id="bandGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%"  stopColor={activeColor} stopOpacity={0.15} />
@@ -101,21 +133,46 @@ export default function ForecastChart({ forecast, activeModel = 'ensemble', show
           </defs>
 
           <CartesianGrid stroke="var(--border)" strokeDasharray="3 6" vertical={false} />
-          <XAxis dataKey="date" tick={{ fontSize: 10, fontFamily: 'var(--font-display)', fill: 'var(--text-tertiary)' }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-          <YAxis tick={{ fontSize: 10, fontFamily: 'var(--font-display)', fill: 'var(--text-tertiary)' }} axisLine={false} tickLine={false} width={42} />
 
-          <Tooltip content={<CustomTooltip showAll={showAll} activeModel={activeModel} />} />
+          {/* Integer index as dataKey — ordering is always array-position, never string */}
+          <XAxis
+            dataKey="idx"
+            type="number"
+            domain={[0, rows.length - 1]}
+            ticks={ticks}
+            tickFormatter={(idx) => {
+              const row = rows[idx]
+              return row ? fmtShortDate(row.isoDate) : ''
+            }}
+            tick={{ fontSize: 10, fontFamily: 'var(--font-display)', fill: 'var(--text-tertiary)' }}
+            axisLine={false}
+            tickLine={false}
+          />
 
-          <ReferenceLine x={splitDate} stroke="var(--border-light)" strokeDasharray="4 4"
-            label={{ value: 'TODAY', position: 'top', fontSize: 9, fill: 'var(--text-tertiary)', fontFamily: 'var(--font-display)' }} />
+          <YAxis
+            tick={{ fontSize: 10, fontFamily: 'var(--font-display)', fill: 'var(--text-tertiary)' }}
+            axisLine={false}
+            tickLine={false}
+            width={42}
+          />
+
+          <Tooltip content={<CustomTooltip />} />
+
+          {/* Divider at the last history point */}
+          <ReferenceLine
+            x={splitIdx}
+            stroke="var(--border-light)"
+            strokeDasharray="4 4"
+            label={{ value: 'TODAY', position: 'top', fontSize: 9, fill: 'var(--text-tertiary)', fontFamily: 'var(--font-display)' }}
+          />
 
           <Area dataKey="actual" fill="url(#histGrad)" stroke="#4a9eff" strokeWidth={1.5} dot={false} activeDot={{ r: 3, fill: '#4a9eff' }} />
-          <Area dataKey="band" fill="url(#bandGrad)" stroke="none" activeDot={false} />
-          <Line dataKey="upper" stroke={activeColor} strokeWidth={0.8} strokeDasharray="3 4" dot={false} activeDot={false} opacity={0.45} />
-          <Line dataKey="lower" stroke={activeColor} strokeWidth={0.8} strokeDasharray="3 4" dot={false} activeDot={false} opacity={0.45} />
+          <Area dataKey="band"   fill="url(#bandGrad)" stroke="none"    activeDot={false} />
+          <Line dataKey="upper"  stroke={activeColor} strokeWidth={0.8} strokeDasharray="3 4" dot={false} activeDot={false} opacity={0.45} />
+          <Line dataKey="lower"  stroke={activeColor} strokeWidth={0.8} strokeDasharray="3 4" dot={false} activeDot={false} opacity={0.45} />
 
           {showAll
-            ? MODELS.map(({ key, color }) => mp[key] ? (
+            ? MODELS.map(({ key, color }) => (forecast.model_predictions || {})[key] ? (
                 <Line key={key} dataKey={key} stroke={color}
                   strokeWidth={key === 'ensemble' ? 2.5 : 1.5}
                   strokeDasharray={key === 'ensemble' ? undefined : '4 3'}

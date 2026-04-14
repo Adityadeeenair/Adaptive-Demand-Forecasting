@@ -23,11 +23,18 @@ export default function Insights({ summary, forecast }) {
 
   useEffect(() => {
     if (!forecast) return
-    const history = forecast.history_dates.map((d, i) => ({
-      date: fmtShortDate(d),
+    /*
+      Same fix applied here as in ForecastChart:
+      Use integer idx as the recharts key, store isoDate separately.
+      tickFormatter converts idx → formatted label at render time.
+      This guarantees chronological order regardless of label format.
+    */
+    const rows = forecast.history_dates.map((isoDate, i) => ({
+      idx: i,
+      isoDate,
       sales: forecast.history_sales[i],
     }))
-    setChartData(history)
+    setChartData(rows)
   }, [forecast])
 
   if (!summary) return (
@@ -38,8 +45,13 @@ export default function Insights({ summary, forecast }) {
     </div>
   )
 
-  const spanDays = summary.date_span_days
+  const spanDays  = summary.date_span_days
   const spanYears = (spanDays / 365).toFixed(1)
+
+  const tickCount = Math.min(8, chartData.length)
+  const tickStep  = chartData.length > 0 ? Math.floor(chartData.length / tickCount) : 1
+  const ticks     = Array.from({ length: tickCount }, (_, i) => Math.min(i * tickStep, chartData.length - 1))
+  if (chartData.length > 0) { ticks[0] = 0; ticks[ticks.length - 1] = chartData.length - 1 }
 
   return (
     <div style={{ padding: '32px', maxWidth: 1100, margin: '0 auto' }}>
@@ -50,17 +62,15 @@ export default function Insights({ summary, forecast }) {
         <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{summary.date_min} → {summary.date_max}</p>
       </div>
 
-      {/* KPI grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 24 }}>
-        <StatCard label="Total Rows"   value={summary.rows.toLocaleString()} sub="daily records" highlight />
-        <StatCard label="Products"     value={summary.products}  sub="store-item pairs" />
-        <StatCard label="Stores"       value={summary.stores}    sub="retail locations" />
-        <StatCard label="Items"        value={summary.items}     sub="distinct SKUs" />
-        <StatCard label="Date Span"    value={`${spanYears}y`}   sub={`${spanDays} days`} />
+        <StatCard label="Total Rows"    value={summary.rows.toLocaleString()} sub="daily records"      highlight />
+        <StatCard label="Products"      value={summary.products}              sub="store-item pairs" />
+        <StatCard label="Stores"        value={summary.stores}                sub="retail locations" />
+        <StatCard label="Items"         value={summary.items}                 sub="distinct SKUs" />
+        <StatCard label="Date Span"     value={`${spanYears}y`}              sub={`${spanDays} days`} />
         <StatCard label="Avg Sales/Day" value={fmtNum(summary.avg_daily_sales, 1)} sub="units per day" />
       </div>
 
-      {/* Thin products warning */}
       {summary.thin_products > 0 && (
         <div style={{ padding: '12px 16px', background: 'rgba(245,166,35,0.06)', border: '1px solid rgba(245,166,35,0.25)', borderRadius: 'var(--radius-md)', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ color: 'var(--amber)', fontSize: 14 }}>⚠</span>
@@ -70,7 +80,6 @@ export default function Insights({ summary, forecast }) {
         </div>
       )}
 
-      {/* Sample products */}
       <div style={{ padding: '20px 24px', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', marginBottom: 24 }}>
         <p style={{ fontSize: 11, fontFamily: 'var(--font-display)', color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14 }}>Sample Products</p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -85,8 +94,7 @@ export default function Insights({ summary, forecast }) {
         </div>
       </div>
 
-      {/* Sales chart — only shown after a forecast is run */}
-      {chartData.length > 0 && (
+      {chartData.length > 0 ? (
         <div style={{ padding: '20px 24px', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
           <p style={{ fontSize: 11, fontFamily: 'var(--font-display)', color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 20 }}>
             Sales History — {forecast?.product_id} (last 90 days)
@@ -95,11 +103,32 @@ export default function Insights({ summary, forecast }) {
             <ResponsiveContainer>
               <LineChart data={chartData} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
                 <CartesianGrid stroke="var(--border)" strokeDasharray="3 6" vertical={false} />
-                <XAxis dataKey="date" tick={{ fontSize: 10, fontFamily: 'var(--font-display)', fill: 'var(--text-tertiary)' }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-                <YAxis tick={{ fontSize: 10, fontFamily: 'var(--font-display)', fill: 'var(--text-tertiary)' }} axisLine={false} tickLine={false} width={40} />
+                <XAxis
+                  dataKey="idx"
+                  type="number"
+                  domain={[0, chartData.length - 1]}
+                  ticks={[...new Set(ticks)].sort((a, b) => a - b)}
+                  tickFormatter={(idx) => {
+                    const row = chartData[idx]
+                    return row ? fmtShortDate(row.isoDate) : ''
+                  }}
+                  tick={{ fontSize: 10, fontFamily: 'var(--font-display)', fill: 'var(--text-tertiary)' }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fontFamily: 'var(--font-display)', fill: 'var(--text-tertiary)' }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={40}
+                />
                 <Tooltip
                   contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-light)', borderRadius: 8, fontSize: 12 }}
-                  labelStyle={{ fontFamily: 'var(--font-display)', color: 'var(--text-tertiary)', fontSize: 10 }}
+                  labelFormatter={(idx) => {
+                    const row = chartData[idx]
+                    return row ? fmtShortDate(row.isoDate) : ''
+                  }}
+                  formatter={(v) => [fmtNum(v, 1), 'Sales']}
                 />
                 <Line dataKey="sales" stroke="var(--amber)" strokeWidth={1.5} dot={false} activeDot={{ r: 3, fill: 'var(--amber)' }} />
               </LineChart>
@@ -109,9 +138,7 @@ export default function Insights({ summary, forecast }) {
             Run a forecast on the Dashboard to update this chart for any product
           </p>
         </div>
-      )}
-
-      {!chartData.length && (
+      ) : (
         <div style={{ padding: '32px', background: 'var(--bg-surface)', border: '1px dashed var(--border)', borderRadius: 'var(--radius-lg)', textAlign: 'center' }}>
           <p style={{ fontSize: 11, fontFamily: 'var(--font-display)', color: 'var(--text-tertiary)', letterSpacing: '0.08em' }}>
             RUN A FORECAST ON THE DASHBOARD TO SEE PRODUCT SALES HISTORY
