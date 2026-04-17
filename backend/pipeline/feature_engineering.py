@@ -50,7 +50,8 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
             Must have: date, store, item, sales, product_id
 
     Returns:
-        DataFrame with original columns + all feature columns.
+        Tuple of (feature_df, store_encoder, item_encoder).
+        feature_df: DataFrame with original columns + all feature columns.
         Rows with NaN (from lag creation at start of each product's
         history) are dropped in one pass at the end.
     """
@@ -112,9 +113,14 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
             if "is_weekend"    in cal_feats: df["is_weekend"]    = (dt.dt.dayofweek >= 5).astype("int8")
 
         # ── Categorical encoding ──────────────────────────────────────────
-        # Tree models don't need one-hot — integer label codes are fine
-        df[store_col] = df[store_col].astype("category").cat.codes.astype("int16")
-        df[item_col]  = df[item_col].astype("category").cat.codes.astype("int16")
+        # Tree models don't need one-hot — integer label codes are fine.
+        # We also capture the encoding map so inference can use the SAME codes.
+        store_cat  = df[store_col].astype("category")
+        item_cat   = df[item_col].astype("category")
+        store_encoder = {str(v): int(c) for v, c in zip(store_cat.cat.categories, range(len(store_cat.cat.categories)))}
+        item_encoder  = {str(v): int(c) for v, c in zip(item_cat.cat.categories,  range(len(item_cat.cat.categories)))}
+        df[store_col] = store_cat.cat.codes.astype("int16")
+        df[item_col]  = item_cat.cat.codes.astype("int16")
 
         # ── Drop NaN rows (one pass at the end) ───────────────────────────
         # NaNs exist only at the start of each product's history due to lags.
@@ -135,7 +141,7 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
         }
     )
 
-    return df
+    return df, store_encoder, item_encoder
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

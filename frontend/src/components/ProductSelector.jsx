@@ -26,16 +26,20 @@ export default function ProductSelector({ products, onForecast, loading }) {
   const [item, setItem]       = useState('')
   const [horizon, setHorizon] = useState(30)
 
-  const stores = [...new Set(products.map((p) => p.store))].sort((a, b) => a - b)
-  const items  = products.filter((p) => !store || p.store === Number(store))
-                         .map((p) => p.item)
-  const selected = products.find((p) => p.store === Number(store) && p.item === Number(item))
+  const stores = [...new Set(products.map((p) => String(p.store)))].sort((a, b) => {
+    const na = Number(a), nb = Number(b)
+    return (!isNaN(na) && !isNaN(nb)) ? na - nb : a.localeCompare(b)
+  })
+  const items  = products.filter((p) => !store || String(p.store) === String(store))
+                         .map((p) => String(p.item))
+  const selected = products.find((p) => String(p.store) === String(store) && String(p.item) === String(item))
 
   useEffect(() => { setItem('') }, [store])
 
   const handleSubmit = () => {
     if (!store || !item) return
-    onForecast(Number(store), Number(item), horizon)
+    // Pass raw string values — backend accepts int or string store/item IDs
+    onForecast(store, item, horizon)
   }
 
   const label = (text) => (

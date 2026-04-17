@@ -368,6 +368,8 @@ def save_models(
     quantile_models: Dict[str, Any],
     segments_df: pd.DataFrame,
     feature_list: list,
+    store_encoder: dict = None,
+    item_encoder: dict = None,
 ) -> None:
     """
     Save all trained objects to backend/saved_models/ using joblib.
@@ -377,6 +379,7 @@ def save_models(
         meta_model.pkl      (NNLSEnsemble)
         quantile_lower.pkl  quantile_upper.pkl
         segments.pkl        feature_list.pkl
+        store_encoder.pkl   item_encoder.pkl   (new — required for correct inference)
     """
     d = _models_dir()
 
@@ -388,6 +391,10 @@ def save_models(
         joblib.dump(quantile_models["upper"], d / "quantile_upper.pkl")
         joblib.dump(segments_df,              d / "segments.pkl")
         joblib.dump(feature_list,             d / "feature_list.pkl")
+        if store_encoder is not None:
+            joblib.dump(store_encoder, d / "store_encoder.pkl")
+        if item_encoder is not None:
+            joblib.dump(item_encoder,  d / "item_encoder.pkl")
 
     saved = [f.name for f in sorted(d.iterdir())]
     log.info("All models saved", extra={"directory": str(d), "files": saved})
@@ -425,7 +432,7 @@ def run_training(data_path: str = None, tune: bool = True) -> dict:
 
         df          = load_data(data_path)
         segments_df = compute_segments(df)
-        ml_df       = build_features(df)
+        ml_df, store_encoder, item_encoder = build_features(df)
 
         X_train, X_test, y_train, y_test = split_train_test(ml_df)
         feature_list = get_feature_list()
@@ -438,7 +445,8 @@ def run_training(data_path: str = None, tune: bool = True) -> dict:
         meta_model      = train_stacked_ensemble(base_models, X_train, y_train)
         quantile_models = train_quantile_models(X_train, y_train)
         results         = evaluate_all(base_models, meta_model, quantile_models, X_test, y_test)
-        save_models(base_models, meta_model, quantile_models, segments_df, feature_list)
+        save_models(base_models, meta_model, quantile_models, segments_df, feature_list,
+                    store_encoder=store_encoder, item_encoder=item_encoder)
         joblib.dump(results, _models_dir() / "training_results.pkl")
 
     log.info("Training complete", extra={"results": results})

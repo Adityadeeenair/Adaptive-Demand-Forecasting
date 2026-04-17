@@ -65,7 +65,7 @@ features:
 # -------------------------------------------------------------
 segmentation:
   intermittent_zero_ratio:  0.40
-  trending_slope_threshold: 0.025
+  trending_slope_threshold: 0.003   # lowered from 0.025 — original never triggered on real data
   seasonality_quantile:     0.75
   volatility_low_quantile:  0.33
   volatility_high_quantile: 0.66
