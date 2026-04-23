@@ -18,12 +18,18 @@ Then open:
     http://localhost:8000/docs   ← interactive API docs
     http://localhost:8000/health ← health check
 """
+from dotenv import load_dotenv
+load_dotenv()
+
+import os
+print("SMTP_USER:", os.getenv("SMTP_USER"))
 
 from datetime import datetime
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.routers import upload, forecast, results
+from backend.routers import email_router
 from backend.models.schemas import HealthResponse
 from backend.services.logger import get_logger
 from backend.services import session_store
@@ -67,6 +73,7 @@ app.add_middleware(
 app.include_router(upload.router)
 app.include_router(forecast.router)
 app.include_router(results.router)
+app.include_router(email_router.router)
 
 # ── Startup event — pre-load models ──────────────────────────────────────────
 

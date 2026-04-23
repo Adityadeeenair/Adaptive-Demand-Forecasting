@@ -22,16 +22,15 @@ export const api = {
     return http.post('/upload', form, { headers: { 'Content-Type': 'multipart/form-data' } })
   },
 
-  getProducts: (sessionId) => http.get(`/products/${sessionId}`),
+  getProducts:  (sessionId)               => http.get(`/products/${sessionId}`),
+  forecast:     (sessionId, store, item, horizon) =>
+                  http.post('/forecast', { session_id: sessionId, store, item, horizon }),
+  getResults:   (sessionId)               => http.get(`/results?session_id=${sessionId}`),
+  getResult:    (forecastId)              => http.get(`/results/${forecastId}`),
+  deleteResult: (forecastId)              => http.delete(`/results/${forecastId}`),
 
-  forecast: (sessionId, store, item, horizon) =>
-    http.post('/forecast', { session_id: sessionId, store, item, horizon }),
-
-  getResults: (sessionId) => http.get(`/results?session_id=${sessionId}`),
-
-  getResult: (forecastId) => http.get(`/results/${forecastId}`),
-
-  deleteResult: (forecastId) => http.delete(`/results/${forecastId}`),
-
-  getInsights: (sessionId) => http.get(`/insights/${sessionId}`),
+  // ── NEW: email export ──────────────────────────────────────────────────────
+  // POST /send-email  { session_id, email }
+  sendEmail: (sessionId, email) =>
+    http.post('/send-email', { session_id: sessionId, email }),
 }
