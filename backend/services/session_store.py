@@ -1,116 +1,105 @@
 """
 backend/services/session_store.py
 ===================================
-In-memory store for uploaded datasets and forecast results.
+Redis-backed store for uploaded datasets and forecast results.
 
-Why in-memory (not a database yet):
-    Phase 2 goal is a working API. A full database adds significant
-    complexity (schema migrations, connection pooling, ORM setup).
-    The in-memory store gives identical API behaviour and is trivially
-    swappable for PostgreSQL in Phase 3 — just replace get/set calls.
+DataFrames are serialized to parquet bytes for efficient storage.
+Forecast dicts are serialized to JSON.
 
-What it stores:
-    Sessions   — uploaded DataFrames keyed by session_id
-    Forecasts  — ForecastResponse dicts keyed by forecast_id,
-                 grouped by session_id for /results lookup
-
-Thread safety:
-    FastAPI runs async but CPU-bound tasks run in a thread pool.
-    The dicts here are only written at upload/forecast time (not
-    continuously), so a simple Lock is sufficient.
-
-Limitations:
-    - Data lives only for the lifetime of the server process
-    - Not suitable for multi-process deployments (use Redis/PostgreSQL)
-    - No automatic expiry (add TTL cleanup in production)
+TTL: sessions expire after 24 hours of inactivity.
 """
 
+import os
 import uuid
-import threading
+import json
+import pickle
 from datetime import datetime
 from typing import Dict, Optional, List
 import pandas as pd
+import redis
 
 from backend.services.logger import get_logger
 
 log = get_logger(__name__)
 
-_lock = threading.Lock()
+# ── Redis client ──────────────────────────────────────────────────────────────
 
-# ── Storage dicts ─────────────────────────────────────────────────────────────
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
+SESSION_TTL = 60 * 60 * 24  # 24 hours
 
-# session_id → {"df": pd.DataFrame, "summary": dict, "created_at": str}
-_sessions: Dict[str, dict] = {}
+_redis = redis.from_url(REDIS_URL, decode_responses=False)
 
-# forecast_id → ForecastResponse dict
-_forecasts: Dict[str, dict] = {}
 
-# session_id → list of forecast_ids (for /results?session_id=...)
-_session_forecasts: Dict[str, List[str]] = {}
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _session_key(session_id: str) -> str:
+    return f"session:{session_id}"
+
+def _forecast_key(forecast_id: str) -> str:
+    return f"forecast:{forecast_id}"
+
+def _session_forecasts_key(session_id: str) -> str:
+    return f"session_forecasts:{session_id}"
 
 
 # ── Session operations ────────────────────────────────────────────────────────
 
 def create_session(df: pd.DataFrame, summary: dict) -> str:
-    """
-    Store a validated DataFrame and its summary.
-    Returns a new unique session_id.
-    """
     session_id = str(uuid.uuid4())
-    with _lock:
-        _sessions[session_id] = {
-            "df":         df,
-            "summary":    summary,
-            "created_at": datetime.utcnow().isoformat(),
-        }
-        _session_forecasts[session_id] = []
+    
+    # Serialize DataFrame to parquet bytes
+    df_bytes = df.to_parquet()
+    
+    payload = {
+        "df": df_bytes,
+        "summary": json.dumps(summary),
+        "created_at": datetime.utcnow().isoformat(),
+    }
+    
+    _redis.hset(_session_key(session_id), mapping={
+        k: v for k, v in payload.items()
+    })
+    _redis.expire(_session_key(session_id), SESSION_TTL)
+    _redis.expire(_session_forecasts_key(session_id), SESSION_TTL)
 
-    log.info(
-        "Session created",
-        extra={
-            "session_id": session_id,
-            "rows":       len(df),
-            "products":   summary.get("products"),
-        }
-    )
+    log.info("Session created", extra={"session_id": session_id, "rows": len(df)})
     return session_id
 
 
 def get_session(session_id: str) -> Optional[dict]:
-    """
-    Retrieve a stored session by ID.
-    Returns None if not found (caller raises 404).
-    """
-    return _sessions.get(session_id)
+    data = _redis.hgetall(_session_key(session_id))
+    if not data:
+        return None
+    
+    import io
+    df = pd.read_parquet(io.BytesIO(data[b"df"]))
+    summary = json.loads(data[b"summary"])
+    created_at = data[b"created_at"].decode()
+    
+    return {"df": df, "summary": summary, "created_at": created_at}
 
 
 def get_dataframe(session_id: str) -> Optional[pd.DataFrame]:
-    """
-    Convenience — returns just the DataFrame for a session.
-    """
-    session = _sessions.get(session_id)
+    session = get_session(session_id)
     return session["df"] if session else None
 
 
 def list_sessions() -> List[str]:
-    """Return all active session IDs."""
-    return list(_sessions.keys())
+    keys = _redis.keys("session:*")
+    return [k.decode().replace("session:", "") for k in keys]
 
 
 def delete_session(session_id: str) -> bool:
-    """
-    Remove a session and all its forecasts.
-    Returns True if found and deleted, False if not found.
-    """
-    with _lock:
-        if session_id not in _sessions:
-            return False
-        del _sessions[session_id]
-        # Clean up associated forecasts
-        fids = _session_forecasts.pop(session_id, [])
-        for fid in fids:
-            _forecasts.pop(fid, None)
-
+    if not _redis.exists(_session_key(session_id)):
+        return False
+    
+    # Delete associated forecasts
+    fids = _redis.lrange(_session_forecasts_key(session_id), 0, -1)
+    for fid in fids:
+        _redis.delete(_forecast_key(fid.decode()))
+    
+    _redis.delete(_session_key(session_id))
+    _redis.delete(_session_forecasts_key(session_id))
     log.info("Session deleted", extra={"session_id": session_id})
     return True
 
@@ -118,54 +107,37 @@ def delete_session(session_id: str) -> bool:
 # ── Forecast operations ───────────────────────────────────────────────────────
 
 def save_forecast(session_id: str, forecast: dict) -> str:
-    """
-    Store a forecast result.
-    Returns a new unique forecast_id (also injected into the dict).
-    """
     forecast_id = str(uuid.uuid4())
     forecast["forecast_id"] = forecast_id
-
-    with _lock:
-        _forecasts[forecast_id] = forecast
-        if session_id in _session_forecasts:
-            _session_forecasts[session_id].append(forecast_id)
-        else:
-            _session_forecasts[session_id] = [forecast_id]
-
-    log.info(
-        "Forecast saved",
-        extra={
-            "forecast_id": forecast_id,
-            "product_id":  forecast.get("product_id"),
-            "horizon":     forecast.get("horizon"),
-        }
-    )
+    
+    _redis.set(_forecast_key(forecast_id), json.dumps(forecast, default=str))
+    _redis.expire(_forecast_key(forecast_id), SESSION_TTL)
+    
+    _redis.rpush(_session_forecasts_key(session_id), forecast_id)
+    _redis.expire(_session_forecasts_key(session_id), SESSION_TTL)
+    
+    log.info("Forecast saved", extra={"forecast_id": forecast_id})
     return forecast_id
 
 
 def get_forecast(forecast_id: str) -> Optional[dict]:
-    """Retrieve a single forecast by ID."""
-    return _forecasts.get(forecast_id)
+    data = _redis.get(_forecast_key(forecast_id))
+    return json.loads(data) if data else None
 
 
 def get_forecasts_for_session(session_id: str) -> List[dict]:
-    """
-    Return all forecasts belonging to a session, newest first.
-    Used by GET /results.
-    """
-    fids = _session_forecasts.get(session_id, [])
+    fids = _redis.lrange(_session_forecasts_key(session_id), 0, -1)
     results = []
-    for fid in reversed(fids):   # newest first
-        f = _forecasts.get(fid)
+    for fid in reversed(fids):
+        f = get_forecast(fid.decode())
         if f:
             results.append(f)
     return results
 
 
-# ── Stats (for /health endpoint) ─────────────────────────────────────────────
+# ── Stats ─────────────────────────────────────────────────────────────────────
 
 def store_stats() -> dict:
-    return {
-        "active_sessions":  len(_sessions),
-        "total_forecasts":  len(_forecasts),
-    }
+    sessions = len(_redis.keys("session:*"))
+    forecasts = len(_redis.keys("forecast:*"))
+    return {"active_sessions": sessions, "total_forecasts": forecasts}
