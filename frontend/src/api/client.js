@@ -1,7 +1,9 @@
 import axios from 'axios'
 
 const http = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.PROD
+    ? 'https://adaptive-demand-forecasting-production.up.railway.app'
+    : '/api',
   timeout: 120000,
 })
 
@@ -29,13 +31,9 @@ export const api = {
   getResult:    (forecastId)              => http.get(`/results/${forecastId}`),
   deleteResult: (forecastId)              => http.delete(`/results/${forecastId}`),
 
-  // ── NEW: email export ──────────────────────────────────────────────────────
-  // POST /send-email  { session_id, email }
   sendEmail: (sessionId, email) =>
     http.post('/send-email', { session_id: sessionId, email }),
 
-  // ── NEW: session insights ──────────────────────────────────────────────────
-  // GET /insights/{session_id}
   getInsights: (sessionId) =>
     http.get(`/insights/${sessionId}`),
 }
