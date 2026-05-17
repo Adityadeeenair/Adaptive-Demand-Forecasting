@@ -53,7 +53,7 @@ export default function App() {
           } />
 
           <Route path="/insights" element={
-            <Insights summary={summary} forecast={lastForecast} />
+            <Insights summary={summary} forecast={lastForecast} sessionId={sessionId} />
           } />
 
           <Route path="*" element={<Navigate to="/" replace />} />

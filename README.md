@@ -1,174 +1,220 @@
-# Adaptive-Demand-Forecasting
-Overview
-This project implements a hybrid demand forecasting system designed to predict retail product sales using a combination of statistical time series models and machine learning models.
+# Adaptive Demand Forecasting System
 
-The system analyzes historical sales data, identifies demand behavior patterns, and applies appropriate forecasting techniques to improve prediction accuracy.
+A production-grade demand forecasting platform. Upload retail sales data, get automatic demand segmentation, multi-model ML forecasts, and confidence intervals — in under a minute.
 
-The project demonstrates how classical forecasting models and modern machine learning models can be combined into a unified forecasting pipeline. The system simulates real-world retail demand forecasting scenarios where different products exhibit different demand behaviors.
+---
 
-The dataset contains five years of daily retail sales data across multiple stores and items. The forecasting pipeline includes demand segmentation, classical forecasting models, machine learning feature engineering, model comparison, and ensemble forecasting.
+## What it does
 
-Project Objectives
-The main goals of this project were:
+- **Demand Segmentation** — classifies each product as stable, trending, seasonal, or volatile
+- **Ensemble ML Models** — Random Forest + XGBoost + LightGBM combined via NNLS weighting
+- **80% Confidence Bands** — quantile regression, per product, per horizon
+- **Product Comparison** — overlay two products on the same chart
+- **Dataset Insights** — segment distribution, top products, sales history
+- **Email Export** — send forecast CSV reports to any email address
+- **Flexible Upload** — any reasonable CSV format, column names auto-detected
 
-Build a demand segmentation system to classify products based on their sales behavior
-Implement classical forecasting models suitable for different demand patterns
-Engineer machine learning features from time series data
-Train multiple machine learning models using a global forecasting approach
-Compare model performance using forecasting metrics
-Combine models using an ensemble forecasting strategy
-Tech-Stack Used
-Python
-Pandas
-NumPy
-Scikit-learn
-XGBoost
-LightGBM
-Statsmodels
+---
 
-Dataset
-The dataset used in this project contains daily retail sales data with the following fields:
+## Stack
 
-date
-store
-item
-sales
-The dataset spans five years of historical sales and contains more than 900,000 observations across 500 product–store combinations.
+| Layer | Technology |
+|---|---|
+| ML Pipeline | scikit-learn, XGBoost, LightGBM, Optuna, statsmodels |
+| Backend | FastAPI, uvicorn, pandas, numpy |
+| Frontend | React, Recharts, Vite |
+| Serving | nginx (production), Vite dev server (development) |
+| Container | Docker, docker-compose |
 
-Each record represents the number of units sold for a specific item at a specific store on a particular day.
+---
 
-Forecasting Pipeline
-The forecasting system follows a structured pipeline consisting of several stages.
+## Quick start — Docker (recommended)
 
-Data preprocessing prepares the dataset by converting date fields and generating unique product identifiers.
+```bash
+# 1. Clone
+git clone https://github.com/your-username/adaptive-demand-forecasting.git
+cd adaptive-demand-forecasting
 
-Demand behavior analysis calculates statistical metrics such as trend, volatility, intermittency, and seasonality.
+# 2. Set up environment variables
+cp .env.example .env
+# Edit .env — only required if you want the email export feature
 
-Product segmentation categorizes products based on their demand patterns.
+# 3. Build and run
+docker-compose up --build
 
-Classical forecasting models are applied to segments where statistical approaches perform well.
+# Frontend → http://localhost:3000
+# Backend  → http://localhost:8000
+# API docs → http://localhost:8000/docs
+```
 
-Machine learning feature engineering converts the time series into supervised learning features.
+First startup takes ~2-3 minutes (installs Python + Node dependencies and builds the frontend). Subsequent starts are instant.
 
-Machine learning models are trained using a global forecasting approach.
+---
 
-Model predictions are combined through an ensemble method to produce the final forecast.
+## Quick start — Local development
 
-Demand Segmentation
-Products are segmented according to their sales behavior.
+### Backend
 
-Stable demand
-Products with consistent sales and low volatility.
+```bash
+cd adaptive-demand-forecasting
 
-Seasonal demand
-Products showing recurring weekly demand patterns.
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
 
-Volatile demand
-Products with irregular fluctuations but continuous demand.
+# Install dependencies
+pip install -r backend/requirements.txt
 
-Each segment is associated with forecasting models that best capture the underlying behavior.
+# Start the API server
+uvicorn backend.main:app --reload --port 8000
+```
 
-Classical Forecasting Models
-Several statistical forecasting models were implemented.
+### Frontend
 
-Simple Exponential Smoothing is used for stable demand products where sales fluctuate around a constant level.
+```bash
+cd frontend
 
-Holt-Winters seasonal forecasting captures weekly seasonality present in certain products.
+# Install dependencies
+npm install
 
-Rolling mean forecasting smooths irregular fluctuations for volatile demand.
+# Start dev server (proxies /api → localhost:8000)
+npm run dev
+# → http://localhost:3000
+```
 
-These models provide strong baseline forecasts and capture time series structures effectively.
+---
 
-Machine Learning Forecasting
-A global machine learning model was trained using engineered features derived from historical sales data.
+## Training the models
 
-The following features were used:
+The repository includes pre-trained model files in `backend/saved_models/`. To retrain on your own data:
 
-lag_1
-lag_7
-lag_14
-rolling_mean_7
-day_of_week
-store encoding
-item encoding
-These features allow the model to learn temporal demand patterns as well as cross-product behavior.
+```bash
+# Activate your virtual environment first
+python -m backend.pipeline.training_pipeline
+```
 
-Three machine learning models were trained and evaluated:
+This reads `data/retail_raw/train.csv`, runs Optuna hyperparameter tuning with TimeSeriesSplit CV, and saves new model files to `backend/saved_models/`.
 
-Random Forest Regressor
-XGBoost Regressor
-LightGBM Regressor
-Model Evaluation
-Model performance was evaluated using forecasting metrics commonly used in demand forecasting.
+---
 
-Mean Absolute Error (MAE) measures the average magnitude of prediction errors.
+## CSV format
 
-Weighted Mean Absolute Percentage Error (WMAPE) measures relative forecasting error across all products.
+Upload any CSV with time-series sales data. Column names are auto-detected:
 
-Results obtained:
+| Column | Accepted names | Required |
+|---|---|---|
+| Date | `date`, `timestamp`, `day`, `week`, `period` | ✓ |
+| Sales | `sales`, `demand`, `quantity`, `revenue`, `units` | ✓ |
+| Store | `store`, `location`, `branch`, `region`, `shop` | Optional |
+| Item | `item`, `product`, `sku`, `category`, `article` | Optional |
 
-Random Forest
-WMAPE ≈ 0.113
+If store/item columns are absent, the dataset is treated as a single time series.
 
-XGBoost
-WMAPE ≈ 0.112
+A sample dataset is available at `frontend/public/sample_dataset.csv` (10 products, 180 days, mixed demand patterns).
 
-LightGBM
-WMAPE ≈ 0.1116
+---
 
-Ensemble Forecasting
-To improve forecast stability, predictions from multiple machine learning models were combined using weighted averaging.
+## Environment variables
 
-The ensemble uses the following weighting strategy based on model accuracy:
+Copy `.env.example` to `.env` and fill in your values. Only the SMTP variables are required, and only if you want the email export feature.
 
-Random Forest weight: 0.25
-XGBoost weight: 0.35
-LightGBM weight: 0.40
-This ensemble approach produces the final forecast and slightly improves overall prediction accuracy.
+```
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=you@gmail.com
+SMTP_PASSWORD=your-app-password
+EMAIL_FROM=you@gmail.com
+```
 
-Final ensemble performance achieved a WMAPE of approximately 0.1117 on the test dataset.
+For Gmail, generate an App Password at [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords).
 
-Project Structure
-adaptive-demand-forecasting
+---
+
+## Deployment
+
+The app is Docker-ready. Deploy to any platform that supports containers:
+
+**Railway**
+```bash
+# Push to GitHub, then connect repo in Railway dashboard
+# Set environment variables in Railway UI
+# Deploy automatically on git push
+```
+
+**Render**
+```bash
+# Create two services: Web Service (backend) + Static Site or Web Service (frontend)
+# Or use a single Docker service with docker-compose
+```
+
+**Any VPS (DigitalOcean, AWS EC2, etc.)**
+```bash
+git clone your-repo
+cd adaptive-demand-forecasting
+cp .env.example .env && nano .env
+docker-compose up -d --build
+```
+
+---
+
+## Project structure
+
+```
+adaptive-demand-forecasting/
+├── backend/
+│   ├── main.py                    # FastAPI app entry point
+│   ├── config.yaml                # Model + pipeline configuration
+│   ├── requirements.txt
+│   ├── pipeline/
+│   │   ├── training_pipeline.py   # Model training + Optuna tuning
+│   │   ├── inference_pipeline.py  # Recursive forecasting
+│   │   ├── segmentation.py        # Demand pattern classification
+│   │   ├── feature_engineering.py # Lag features, rolling stats
+│   │   └── ensemble.py            # NNLS ensemble weighting
+│   ├── routers/
+│   │   ├── upload.py              # POST /upload
+│   │   ├── forecast.py            # POST /forecast
+│   │   ├── results.py             # GET/DELETE /results
+│   │   ├── email_router.py        # POST /send-email
+│   │   └── insights_router.py     # GET /insights/{session_id}
+│   ├── services/
+│   │   ├── data_adapter.py        # Universal CSV normalisation
+│   │   ├── data_loader.py         # Dataset loading + validation
+│   │   ├── session_store.py       # In-memory session management
+│   │   ├── email_service.py       # SMTP email sending
+│   │   └── logger.py
+│   └── saved_models/              # Trained model .pkl files
 │
-├── data
-│   └── retail dataset
+├── frontend/
+│   ├── src/
+│   │   ├── pages/
+│   │   │   ├── Landing.jsx        # Home/landing page
+│   │   │   ├── Home.jsx           # Upload page
+│   │   │   ├── Dashboard.jsx      # Forecast dashboard
+│   │   │   ├── Models.jsx         # Model architecture + live metrics
+│   │   │   └── Insights.jsx       # Dataset analytics
+│   │   ├── components/
+│   │   │   ├── ForecastChart.jsx  # Main forecast chart
+│   │   │   ├── CompareChart.jsx   # Two-product comparison chart
+│   │   │   ├── MetricsPanel.jsx   # Per-model WMAPE/MAE cards
+│   │   │   └── UploadZone.jsx     # Drag-and-drop upload
+│   │   └── api/client.js          # Axios API client
+│   └── public/
+│       └── sample_dataset.csv     # Demo dataset
 │
-|── notebooks
-│   └── forecasting_analysis
-|
-├── src
-│   ├── data_loader
-│   ├── segmentation
-│   ├── classical_models
-│   ├── ml_features
-│   ├── ml_models
-│   └── ensemble_models
+├── data/
+│   └── retail_raw/train.csv       # Training data
 │
-└── README.md
-Key Learnings
-This project highlights several important principles in demand forecasting.
+├── Dockerfile                     # Backend container
+├── frontend.Dockerfile            # Frontend container (nginx)
+├── docker-compose.yml             # Orchestration
+├── nginx.conf                     # nginx SPA + proxy config
+├── .env.example                   # Environment variable template
+└── .dockerignore
+```
 
-Feature engineering often contributes more to model performance than model complexity.
+---
 
-Different demand behaviors require different forecasting strategies.
+## License
 
-Global machine learning models can learn shared patterns across products.
-
-Combining multiple models through ensemble forecasting improves prediction stability.
-
-Future Improvements
-Possible extensions of this project include:
-
-Adding promotion or holiday features to improve demand prediction
-Incorporating deep learning models such as LSTM or Temporal Fusion Transformers
-Developing an automated model selection system based on demand segmentation
-Building a forecasting dashboard to visualize predictions and demand trends
-How to Run
-Step 1 : Clone the repository - git clone https://github.com/YOUR_USERNAME/adaptive-demand-forecasting.git
-
-Step 2 : Navigate into the project directory - cd adaptive-demand-forecasting
-
-Step 3 : Install required dependencies - pip install -r requirements.txt
-
-Step 4 : Run the forecasting pipeline - python src/main.py
+MIT

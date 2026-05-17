@@ -1,0 +1,49 @@
+# docker-compose.yml
+
+
+services:
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      SMTP_HOST:     ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT:     ${SMTP_PORT:-587}
+      SMTP_USER:     ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      EMAIL_FROM:    ${EMAIL_FROM:-}
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+    volumes:
+      - ./backend/saved_models:/app/backend/saved_models
+      - ./data:/app/data
+      - ./backend/logs:/app/backend/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s 
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - adf-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend.Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - adf-network
+
+networks:
+  adf-network:
+    driver: bridge

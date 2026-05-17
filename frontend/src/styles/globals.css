@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Manrope:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
   --bg-base:       #0d0d0f;
@@ -23,8 +23,12 @@
   --red:           #e74c3c;
   --blue:          #4a9eff;
 
-  --font-display:  'Space Mono', monospace;
-  --font-body:     'DM Sans', sans-serif;
+  /* Syne: geometric, bold, distinctive â€” headings + display labels  */
+  /* Manrope: clean geometric sans â€” body copy, UI text              */
+  /* JetBrains Mono: sharp monospace â€” code tags, metrics, badges    */
+  --font-display:  'Syne', sans-serif;
+  --font-body:     'Manrope', sans-serif;
+  --font-mono:     'JetBrains Mono', monospace;
 
   --radius-sm:     4px;
   --radius-md:     8px;
@@ -52,13 +56,16 @@ body {
   font-size: 14px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
+/* â”€â”€ Scrollbar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 ::-webkit-scrollbar              { width: 4px; }
 ::-webkit-scrollbar-track        { background: var(--bg-base); }
 ::-webkit-scrollbar-thumb        { background: var(--border-light); border-radius: 2px; }
 ::-webkit-scrollbar-thumb:hover  { background: var(--text-tertiary); }
 
+/* â”€â”€ Element resets â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 button {
   font-family: var(--font-body);
   cursor: pointer;
@@ -73,8 +80,21 @@ input, select {
 
 a { text-decoration: none; color: inherit; }
 
+/* Syne looks best with slightly tighter tracking on headings */
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+/* JetBrains Mono for all code, badge, and metric contexts */
+code, kbd, .font-mono,
+[style*="font-display"] {
+  font-family: var(--font-mono);
+}
+
 ::selection { background: var(--amber-glow-md); color: var(--amber); }
 
+/* â”€â”€ Animations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(16px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -92,14 +112,25 @@ a { text-decoration: none; color: inherit; }
 
 @keyframes shimmer {
   0%   { background-position: -400px 0; }
-  100% { background-position: 400px 0; }
+  100% { background-position:  400px 0; }
 }
 
-.animate-fade-up  { animation: fadeUp 0.45s ease both; }
-.animate-fade-in  { animation: fadeIn 0.3s ease both; }
+@keyframes progress-bar {
+  0%   { width: 0%; }
+  60%  { width: 85%; }
+  100% { width: 95%; }
+}
+
+.animate-fade-up { animation: fadeUp 0.45s ease both; }
+.animate-fade-in { animation: fadeIn 0.3s ease both; }
 
 .skeleton {
-  background: linear-gradient(90deg, var(--bg-elevated) 25%, var(--bg-hover) 50%, var(--bg-elevated) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--bg-elevated) 25%,
+    var(--bg-hover)    50%,
+    var(--bg-elevated) 75%
+  );
   background-size: 400px 100%;
   animation: shimmer 1.4s infinite;
   border-radius: var(--radius-sm);

@@ -30,6 +30,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.routers import upload, forecast, results
 from backend.routers import email_router
+from backend.routers import insights_router
 from backend.models.schemas import HealthResponse
 from backend.services.logger import get_logger
 from backend.services import session_store
@@ -74,6 +75,7 @@ app.include_router(upload.router)
 app.include_router(forecast.router)
 app.include_router(results.router)
 app.include_router(email_router.router)
+app.include_router(insights_router.router)
 
 # ── Startup event — pre-load models ──────────────────────────────────────────
 

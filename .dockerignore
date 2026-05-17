@@ -1,0 +1,49 @@
+# .dockerignore — keeps the build context lean and fast
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+venv/
+.venv/
+env/
+.env
+*.env
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Git
+.git/
+.gitignore
+
+# Logs
+backend/logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Notebooks (not needed at runtime)
+notebooks/
+*.ipynb
+
+# Test data / dev datasets
+data/retail_raw/
+
+# Keep saved_models — they're mounted as a volume but exclude huge ones
+# backend/saved_models/   ← do NOT ignore, needed for volume mount reference

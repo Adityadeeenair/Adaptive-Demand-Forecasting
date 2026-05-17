@@ -161,11 +161,24 @@ async def generate_forecast(body: ForecastRequest) -> ForecastResponse:
             )
 
     generated_at  = datetime.utcnow().isoformat()
+
+    # Use per-product metrics computed by run_inference (last-30-days holdout).
+    # Fall back to the global training_results.pkl only when the per-product
+    # computation returned empty (history too short for a 30-day split).
+    per_product_metrics = result.get("model_metrics", {})
+    if not per_product_metrics:
+        metrics_path = Path(__file__).resolve().parents[1] / "saved_models" / "training_results.pkl"
+        if metrics_path.exists():
+            try:
+                per_product_metrics = joblib.load(metrics_path)
+            except Exception:
+                per_product_metrics = {}
+
     forecast_dict = {
         "product_id":        result["product_id"],
         "store":             result["store"],
         "item":              result["item"],
-        "segment":           result["segment"],   # same segment from cache
+        "segment":           result["segment"],
         "horizon":           result["horizon"],
         "generated_at":      generated_at,
         "forecast_dates":    result["forecast_dates"],
@@ -175,15 +188,8 @@ async def generate_forecast(body: ForecastRequest) -> ForecastResponse:
         "upper_bound":       result["upper_bound"],
         "history_sales":     result["history_sales"],
         "model_predictions": result.get("model_predictions", {}),
-        "model_metrics":     {},
+        "model_metrics":     per_product_metrics,
     }
-
-    metrics_path = Path(__file__).resolve().parents[1] / "saved_models" / "training_results.pkl"
-    if metrics_path.exists():
-        try:
-            forecast_dict["model_metrics"] = joblib.load(metrics_path)
-        except Exception:
-            pass
 
     forecast_id = save_forecast(body.session_id, forecast_dict)
 
