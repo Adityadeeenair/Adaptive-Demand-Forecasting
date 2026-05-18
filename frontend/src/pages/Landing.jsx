@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 
 const FEATURES = [
   { icon: '⬡', title: 'Demand Segmentation',  desc: 'Automatically classifies products into stable, seasonal, volatile, and intermittent demand patterns.' },
@@ -21,14 +22,20 @@ const STACK = [
   'Holt-Winters', 'Optuna Tuning', 'Quantile Regression', 'TimeSeriesSplit CV',
 ]
 
-// ── Segment type cards — shows what the system produces ──────────────────────
+const TYPEWRITER_WORDS = [
+  'Forecasting System',
+  'Intelligence Engine',
+  'Prediction Platform',
+  'Analytics Suite',
+  'Planning Engine',
+]
+
 const SEGMENTS = [
   {
     key: 'stable',
     label: 'Stable',
     color: '#2ecc71',
     desc: 'Flat, consistent demand. Predictable — high confidence bands.',
-    // sparkline as simple CSS bars
     bars: [60, 62, 58, 61, 60, 63, 59, 62, 60, 61, 59, 62],
   },
   {
@@ -57,7 +64,6 @@ const SEGMENTS = [
 function MiniSparkline({ bars, color }) {
   const max = Math.max(...bars)
   const H = 28
-
   return (
     <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: H }}>
       {bars.map((v, i) => (
@@ -104,9 +110,54 @@ function SegmentCard({ seg }) {
   )
 }
 
+function TypewriterText() {
+  const [wordIndex, setWordIndex] = useState(0)
+  const [displayed, setDisplayed] = useState('')
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  useEffect(() => {
+    const current = TYPEWRITER_WORDS[wordIndex]
+    let timeout
+
+    if (!isDeleting && displayed.length < current.length) {
+      timeout = setTimeout(() => setDisplayed(current.slice(0, displayed.length + 1)), 80)
+    } else if (!isDeleting && displayed.length === current.length) {
+      timeout = setTimeout(() => setIsDeleting(true), 2000)
+    } else if (isDeleting && displayed.length > 0) {
+      timeout = setTimeout(() => setDisplayed(current.slice(0, displayed.length - 1)), 45)
+    } else if (isDeleting && displayed.length === 0) {
+      setIsDeleting(false)
+      setWordIndex((wordIndex + 1) % TYPEWRITER_WORDS.length)
+    }
+
+    return () => clearTimeout(timeout)
+  }, [displayed, isDeleting, wordIndex])
+
+  return (
+    <span style={{ color: 'var(--amber)' }}>
+      {displayed}
+      <span style={{
+        display: 'inline-block',
+        width: '3px',
+        height: '0.85em',
+        background: 'var(--amber)',
+        marginLeft: '3px',
+        verticalAlign: 'middle',
+        animation: 'blink 1s step-end infinite',
+      }} />
+    </span>
+  )
+}
+
 export default function Landing() {
   return (
     <div style={{ color: 'var(--text-primary)' }}>
+      <style>{`
+        @keyframes blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0; }
+        }
+      `}</style>
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
       <section style={{
@@ -125,7 +176,6 @@ export default function Landing() {
           background: 'radial-gradient(ellipse 80% 50% at 50% 0%, rgba(245,166,35,0.07) 0%, transparent 70%)',
         }} />
 
-        {/* Title + CTA — identical to original */}
         <div style={{ textAlign: 'center', maxWidth: 720, position: 'relative', animation: 'fadeUp 0.6s ease both' }}>
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 8,
@@ -143,9 +193,10 @@ export default function Landing() {
             fontSize: 'clamp(36px, 6vw, 64px)',
             fontFamily: 'var(--font-heading)', fontWeight: 700,
             lineHeight: 1.1, marginBottom: 20, letterSpacing: '-0.01em',
+            minHeight: '2.4em',
           }}>
             Adaptive Demand<br />
-            <span style={{ color: 'var(--amber)' }}>Forecasting System</span>
+            <TypewriterText />
           </h1>
 
           <p style={{ fontSize: 17, color: 'var(--text-secondary)', lineHeight: 1.75, maxWidth: 560, margin: '0 auto 40px' }}>
@@ -177,7 +228,7 @@ export default function Landing() {
           </div>
         </div>
 
-        {/* Stat chips — identical to original */}
+        {/* Stat chips */}
         <div style={{ display: 'flex', gap: 12, marginTop: 56, flexWrap: 'wrap', justifyContent: 'center', animation: 'fadeUp 0.6s ease 0.15s both' }}>
           {[
             { val: '11.1%', lab: 'WMAPE — Ensemble' },
@@ -192,7 +243,7 @@ export default function Landing() {
           ))}
         </div>
 
-        {/* Segment type strip — shows what the system identifies */}
+        {/* Segment type strip */}
         <div style={{ width: '100%', maxWidth: 860, marginTop: 56, animation: 'fadeUp 0.6s ease 0.25s both' }}>
           <p style={{ fontSize: 10, fontFamily: 'var(--font-display)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 16, textAlign: 'center' }}>
             Demand segments automatically detected
