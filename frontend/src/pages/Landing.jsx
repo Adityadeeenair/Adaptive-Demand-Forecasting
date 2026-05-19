@@ -228,19 +228,21 @@ export default function Landing() {
           </div>
         </div>
 
-        {/* Stat chips */}
-        <div style={{ display: 'flex', gap: 12, marginTop: 56, flexWrap: 'wrap', justifyContent: 'center', animation: 'fadeUp 0.6s ease 0.15s both' }}>
-          {[
-            { val: '11.1%', lab: 'WMAPE — Ensemble' },
-            { val: '80%',   lab: 'Interval Coverage' },
-            { val: '500+',  lab: 'Products Supported' },
-            { val: '4',     lab: 'Models Compared' },
-          ].map(({ val, lab }) => (
-            <div key={lab} style={{ padding: '12px 20px', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', textAlign: 'center', minWidth: 110 }}>
-              <p style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: 'var(--amber)', marginBottom: 2 }}>{val}</p>
-              <p style={{ fontSize: 10, color: 'var(--text-tertiary)', fontFamily: 'var(--font-display)', letterSpacing: '0.06em' }}>{lab}</p>
-            </div>
-          ))}
+        {/* Info + GitHub */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginTop: 56, animation: 'fadeUp 0.6s ease 0.15s both' }}>
+          <p style={{ fontSize: 15, color: 'var(--text-secondary)', fontFamily: 'var(--font-display)', letterSpacing: '0.04em' }}>
+            Trained on multi-year retail sales patterns
+          </p>
+          <a
+            href="https://github.com/Adityadeeenair/Adaptive-Demand-Forecasting"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ fontSize: 15, color: 'var(--text-secondary)', fontFamily: 'var(--font-display)', letterSpacing: '0.04em', transition: 'var(--transition)', textDecoration: 'none' }}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--amber)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-secondary)'}
+          >
+            Open Source · View on GitHub →
+          </a>
         </div>
 
         {/* Segment type strip */}
