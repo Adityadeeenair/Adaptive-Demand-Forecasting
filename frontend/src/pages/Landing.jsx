@@ -253,7 +253,7 @@ export default function Landing() {
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             {SEGMENTS.map(seg => <SegmentCard key={seg.key} seg={seg} />)}
           </div>
-        </div>
+        </div> 
       </section>
 
       {/* ── How it works ─────────────────────────────────────────────────── */}
