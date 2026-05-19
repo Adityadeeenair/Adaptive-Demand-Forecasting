@@ -241,7 +241,7 @@ export default function Landing() {
             onMouseEnter={e => e.currentTarget.style.color = 'var(--amber)'}
             onMouseLeave={e => e.currentTarget.style.color = 'var(--text-secondary)'}
           >
-            Open source · View on GitHub →
+            Open Source · View on GitHub →
           </a>
         </div>
 
