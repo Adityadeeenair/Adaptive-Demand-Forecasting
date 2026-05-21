@@ -1,9 +1,7 @@
 import axios from 'axios'
 
 const http = axios.create({
-  baseURL: import.meta.env.PROD
-    ? 'https://adaptive-demand-forecasting-production.up.railway.app'
-    : '/api',
+  baseURL: import.meta.env.VITE_API_URL || '/api',
   timeout: 120000,
 })
 
