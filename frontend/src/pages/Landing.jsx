@@ -183,7 +183,6 @@ export default function Landing() {
             background: 'var(--amber-glow)', border: '1px solid var(--amber-dim)',
             borderRadius: 'var(--radius-sm)', marginBottom: 28,
           }}>
-            <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--amber)' }} />
             <span style={{ fontSize: 10, fontFamily: 'var(--font-display)', color: 'var(--amber)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
               Production-Grade Forecasting
             </span>
