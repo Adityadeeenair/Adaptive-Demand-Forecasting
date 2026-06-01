@@ -1,13 +1,3 @@
-"""
-backend/services/data_loader.py
-================================
-Loads the training CSV, validates schema, cleans data.
-Also provides:
-  - load_adapted()        — validates a DataFrame already processed by the adapter
-  - get_product_series()  — extracts one store/item time series for inference
-  - get_dataset_summary() — builds the JSON summary returned by /upload
-"""
-
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -21,8 +11,6 @@ log = get_logger(__name__)
 MAX_FILE_MB = 200
 
 
-# ── Custom exceptions ─────────────────────────────────────────────────────────
-
 class DataLoadError(Exception):
     """File not found or cannot be read."""
 
@@ -33,18 +21,13 @@ class InsufficientDataError(Exception):
     """Dataset too small to be useful."""
 
 
-# ── Config helper ─────────────────────────────────────────────────────────────
-
 def _cfg() -> dict:
     p = Path(__file__).resolve().parents[1] / "config.yaml"
     with open(p) as f:
         return yaml.safe_load(f)
 
 
-# ── Column normalisation ──────────────────────────────────────────────────────
-
 def _normalise_columns(df: pd.DataFrame, required: list):
-    """Case-insensitive column matching — maps Date/STORE/Sales → date/store/sales."""
     col_map = {c.lower().strip(): c for c in df.columns}
     rename, missing = {}, []
     for req in required:
@@ -60,10 +43,8 @@ def _normalise_columns(df: pd.DataFrame, required: list):
     return df, missing
 
 
-# ── Date parsing ──────────────────────────────────────────────────────────────
 
 def _parse_dates(series: pd.Series, configured_fmt: str) -> pd.Series:
-    """Try configured format first, then common formats, then pandas inference."""
     sample = series.dropna().head(5).tolist()
     for fmt in [configured_fmt,
                 "%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%Y/%m/%d",
@@ -85,16 +66,9 @@ def _parse_dates(series: pd.Series, configured_fmt: str) -> pd.Series:
         )
 
 
-# ── Training data loader ──────────────────────────────────────────────────────
 
 def load_data(path: Union[str, Path] = None) -> pd.DataFrame:
-    """
-    Load, validate, and clean the retail training CSV.
-    Used for training the ML models — expects exact column names from config.
 
-    For uploaded user data, use the adapter pipeline instead:
-        data_adapter.adapt() → load_adapted()
-    """
     full_cfg  = _cfg()
     data_cfg  = full_cfg["data"]
     paths_cfg = full_cfg["paths"]
@@ -180,18 +154,9 @@ def load_data(path: Union[str, Path] = None) -> pd.DataFrame:
     return df
 
 
-# ── Adapter output validator ──────────────────────────────────────────────────
 
 def load_adapted(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Validate and finalise a DataFrame already processed by data_adapter.adapt().
 
-    This is a lightweight contract check — the adapter has already done all
-    the heavy lifting (column detection, date parsing, cleaning, gap filling).
-    This function just enforces types and minimum row count.
-
-    Called by upload.py after adapt(). Safe to call multiple times.
-    """
     required = ["date", "store", "item", "sales", "product_id"]
     missing  = [c for c in required if c not in df.columns]
     if missing:
@@ -232,13 +197,9 @@ def load_adapted(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# ── Product series extractor ──────────────────────────────────────────────────
 
 def get_product_series(df: pd.DataFrame, store, item) -> pd.Series:
-    """
-    Extract the sales time series for one store-item pair.
-    store/item can be int or string — both are coerced to str for lookup.
-    """
+    
     cfg      = _cfg()["data"]
     prod_col = cfg["product_id_col"]
     date_col = cfg["date_column"]
@@ -266,24 +227,15 @@ def get_product_series(df: pd.DataFrame, store, item) -> pd.Series:
     return series
 
 
-# ── Dataset summary ───────────────────────────────────────────────────────────
 
 def get_dataset_summary(df: pd.DataFrame) -> dict:
-    """
-    Build the JSON summary returned by POST /upload.
-
-    Works with both load_data() output (config column names) and
-    load_adapted() output (standardised names: date/store/item/sales).
-    Detects which format is present automatically.
-    """
-    # The adapter always produces these exact column names
+   
     date_col = "date"
     str_col  = "store"
     itm_col  = "item"
     tgt_col  = "sales"
     prod_col = "product_id"
 
-    # Fallback: if columns come from load_data() with config-driven names
     if prod_col not in df.columns:
         try:
             cfg      = _cfg()["data"]
@@ -293,7 +245,7 @@ def get_dataset_summary(df: pd.DataFrame) -> dict:
             tgt_col  = cfg["target_column"]
             prod_col = cfg["product_id_col"]
         except Exception:
-            pass  # stay with adapter defaults
+            pass 
 
     sizes = df.groupby(prod_col).size()
 

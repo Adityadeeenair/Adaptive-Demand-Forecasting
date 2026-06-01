@@ -1,24 +1,3 @@
-"""
-backend/pipeline/training_pipeline.py
-=======================================
-Trains all ML models and saves them to disk.
-
-Replaces: src/ml_models.py + src/ensemble_models.py + ML section of src/main.py
-
-Upgrades over original:
-  - TimeSeriesSplit CV instead of single train/test split    
-  - Optuna hyperparameter tuning for XGB and LGB             
-  - NNLS stacked ensemble — learned, non-negative weights    
-  - Quantile LGB models for 80% prediction intervals         
-  - joblib model saving — no retraining on every run         
-  - Completely separated from inference pipeline             
-  - Structured logging throughout                            
-
-To run:
-    cd <project_root>
-    python -m backend.pipeline.training_pipeline
-"""
-
 import copy
 import warnings
 import numpy as np
@@ -49,7 +28,6 @@ from backend.pipeline.ensemble import NNLSEnsemble   # stable pickle path
 log = get_logger(__name__)
 
 
-# ── Config + paths ────────────────────────────────────────────────────────────
 
 def _cfg() -> dict:
     p = Path(__file__).resolve().parents[1] / "config.yaml"
@@ -64,7 +42,6 @@ def _models_dir() -> Path:
     return d
 
 
-# ── Metrics ───────────────────────────────────────────────────────────────────
 
 def wmape(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     """Weighted Mean Absolute Percentage Error — primary optimisation metric."""
@@ -76,16 +53,9 @@ def mae(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     return float(mean_absolute_error(y_true, y_pred))
 
 
-# ── TimeSeriesSplit CV ────────────────────────────────────────────────────────
 
 def cv_score(model, X: pd.DataFrame, y: pd.Series) -> Dict[str, float]:
-    """
-    Evaluate a model with TimeSeriesSplit cross-validation.
 
-    TimeSeriesSplit always trains on the past and validates on the future.
-    Random k-fold must never be used for time-series — it leaks future data
-    into training, making results meaninglessly optimistic.
-    """
     cfg  = _cfg()["split"]
     tscv = TimeSeriesSplit(n_splits=cfg["cv_n_splits"], gap=cfg["cv_gap"])
     wmapes, maes = [], []
@@ -108,10 +78,9 @@ def cv_score(model, X: pd.DataFrame, y: pd.Series) -> Dict[str, float]:
     return result
 
 
-# ── Optuna tuning ─────────────────────────────────────────────────────────────
 
 def _tune_xgboost(X: pd.DataFrame, y: pd.Series) -> dict:
-    """Tune XGBoost hyperparameters using Optuna + TimeSeriesSplit."""
+    
     cfg  = _cfg()
     sp   = cfg["optuna"]["xgboost_search_space"]
     tscv = TimeSeriesSplit(n_splits=cfg["split"]["cv_n_splits"])
@@ -170,37 +139,23 @@ def _tune_lightgbm(X: pd.DataFrame, y: pd.Series) -> dict:
     return study.best_params
 
 
-# ── Base model training ───────────────────────────────────────────────────────
 
 def train_base_models(
     X_train: pd.DataFrame,
     y_train: pd.Series,
     tune: bool = True,
 ) -> Dict[str, Any]:
-    """
-    Train Random Forest, XGBoost, and LightGBM.
-    XGB and LGB are optionally tuned with Optuna before final fit.
 
-    Args:
-        X_train: Training feature matrix
-        y_train: Training target
-        tune:    If True, run Optuna before fitting XGB and LGB
-
-    Returns:
-        dict mapping model name → fitted model object
-    """
     cfg     = _cfg()
     mcfg    = cfg["models"]
     to_tune = cfg["optuna"].get("models_to_tune", [])
     models  = {}
 
-    # ── Random Forest ──────────────────────────────────────────────────────
     with Timer("Random Forest", log):
         rf = RandomForestRegressor(**mcfg["random_forest"])
         rf.fit(X_train, y_train)
         models["random_forest"] = rf
 
-    # ── XGBoost ───────────────────────────────────────────────────────────
     with Timer("XGBoost", log):
         xgb_params = dict(mcfg["xgboost"])
         if tune and "xgboost" in to_tune:
@@ -212,7 +167,6 @@ def train_base_models(
         xgb_model.fit(X_train, y_train)
         models["xgboost"] = xgb_model
 
-    # ── LightGBM ──────────────────────────────────────────────────────────
     with Timer("LightGBM", log):
         lgb_params = dict(mcfg["lightgbm"])
         if tune and "lightgbm" in to_tune:
@@ -227,39 +181,37 @@ def train_base_models(
     return models
 
 
-# ── Stacked ensemble ──────────────────────────────────────────────────────────
 
 def train_stacked_ensemble(
     base_models: Dict[str, Any],
     X_train: pd.DataFrame,
     y_train: pd.Series,
 ) -> NNLSEnsemble:
+
     """
-    Learn optimal ensemble weights using out-of-fold (OOF) predictions
+    This section learns optimal ensemble weights using out-of-fold (OOF) predictions
     and non-negative least squares (NNLS).
 
-    Why OOF:
+    Why are we using OOF ?? -
         If base models predict on the same data they trained on, their
         predictions are overfit and the meta-model learns nothing useful.
         OOF means each row's prediction comes from a model that never
         saw that row during training — honest signal for the meta-model.
 
-    Why NNLS over Ridge regression:
+    Why NNLS over Ridge regression??? - 
         Ridge can assign negative weights when base models are correlated
         (e.g. XGBoost weight = -2.5), making the ensemble worse than any
         individual model. NNLS constrains all weights >= 0, guaranteeing
         the ensemble is at least as good as the best base model.
 
-    Returns:
-        NNLSEnsemble with learned weights summing to 1.
     """
+
     cfg  = _cfg()
     n_sp = cfg["split"]["cv_n_splits"]
     tscv = TimeSeriesSplit(n_splits=n_sp)
 
     log.info("Training stacked ensemble via OOF predictions")
 
-    # Initialise OOF arrays
     oof = {name: np.zeros(len(X_train)) for name in base_models}
 
     with Timer("OOF generation", log):
@@ -268,19 +220,16 @@ def train_stacked_ensemble(
             X_val = X_train.iloc[val_idx]
             y_tr  = y_train.iloc[tr_idx]
             for name, model in base_models.items():
-                m = copy.deepcopy(model)    # don't modify the trained model
+                m = copy.deepcopy(model)    
                 m.fit(X_tr, y_tr)
                 oof[name][val_idx] = m.predict(X_val)
             log.debug(f"OOF fold {fold + 1}/{n_sp} done")
 
-    # Stack OOF predictions → meta-feature matrix
     meta_X = np.column_stack([oof[name] for name in base_models])   # (n_train, 3)
     meta_y = y_train.values                                          # (n_train,)
 
-    # NNLS: find weights w >= 0 that minimise ||meta_X @ w - meta_y||
     weights_raw, residual = nnls(meta_X, meta_y)
 
-    # Normalise so weights sum to 1 (keeps predictions on correct scale)
     total = weights_raw.sum()
     weights_norm = weights_raw / total if total > 0 else weights_raw
 
@@ -292,17 +241,12 @@ def train_stacked_ensemble(
     return ensemble
 
 
-# ── Quantile models ───────────────────────────────────────────────────────────
 
 def train_quantile_models(
     X_train: pd.DataFrame,
     y_train: pd.Series,
 ) -> Dict[str, lgb.LGBMRegressor]:
-    """
-    Train lower (10th percentile) and upper (90th percentile) LGB models.
-    Together they form the 80% prediction interval displayed as the
-    shaded confidence band on the dashboard chart.
-    """
+    
     cfg     = _cfg()["models"]
     qmodels = {}
 
@@ -316,7 +260,6 @@ def train_quantile_models(
     return qmodels
 
 
-# ── Evaluation ────────────────────────────────────────────────────────────────
 
 def evaluate_all(
     base_models: Dict[str, Any],
@@ -325,13 +268,9 @@ def evaluate_all(
     X_test: pd.DataFrame,
     y_test: pd.Series,
 ) -> Dict[str, dict]:
-    """
-    Evaluate every model on the held-out test set.
-    Returns a dict shown on the dashboard's model comparison panel.
-    """
+    
     results = {}
 
-    # Individual base models
     for name, model in base_models.items():
         preds = model.predict(X_test)
         results[name] = {
@@ -347,7 +286,6 @@ def evaluate_all(
         "mae":   round(mae(y_test.values, ens_preds), 2),
     }
 
-    # Prediction interval coverage (how often actual falls in the 80% band)
     lower    = quantile_models["lower"].predict(X_test)
     upper    = quantile_models["upper"].predict(X_test)
     coverage = float(np.mean((y_test.values >= lower) & (y_test.values <= upper)))
@@ -360,7 +298,6 @@ def evaluate_all(
     return results
 
 
-# ── Model persistence ─────────────────────────────────────────────────────────
 
 def save_models(
     base_models: Dict[str, Any],
@@ -371,16 +308,7 @@ def save_models(
     store_encoder: dict = None,
     item_encoder: dict = None,
 ) -> None:
-    """
-    Save all trained objects to backend/saved_models/ using joblib.
 
-    Files saved:
-        random_forest.pkl   xgboost.pkl   lightgbm.pkl
-        meta_model.pkl      (NNLSEnsemble)
-        quantile_lower.pkl  quantile_upper.pkl
-        segments.pkl        feature_list.pkl
-        store_encoder.pkl   item_encoder.pkl   (new — required for correct inference)
-    """
     d = _models_dir()
 
     with Timer("Saving models", log):
@@ -400,30 +328,9 @@ def save_models(
     log.info("All models saved", extra={"directory": str(d), "files": saved})
 
 
-# ── Entry point ───────────────────────────────────────────────────────────────
 
 def run_training(data_path: str = None, tune: bool = True) -> dict:
-    """
-    Full training pipeline — call this to train and save all models.
 
-    Steps:
-        1.  Load and validate data
-        2.  Compute demand segmentation
-        3.  Build ML features
-        4.  Train/test split
-        5.  Train base models (+ Optuna tuning if tune=True)
-        6.  Train stacked ensemble
-        7.  Train quantile interval models
-        8.  Evaluate on test set
-        9.  Save everything to disk
-
-    Args:
-        data_path: Override CSV path (uses config.yaml default if None)
-        tune:      Run Optuna tuning — slower but meaningfully better results
-
-    Returns:
-        dict with wmape and mae for every model + interval coverage.
-    """
     log.info("=" * 55)
     log.info("ForecastIQ — Training Pipeline Starting")
     log.info("=" * 55)
@@ -453,7 +360,6 @@ def run_training(data_path: str = None, tune: bool = True) -> dict:
     return results
 
 
-# ── Direct run ────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     results = run_training(tune=True)

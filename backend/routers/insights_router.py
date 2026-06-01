@@ -1,16 +1,3 @@
-"""
-backend/routers/insights_router.py
-====================================
-GET /insights/{session_id}
-
-Returns session-level analytics for the Insights page:
-  - segment_counts: { stable: 5, trending: 3, ... }
-  - top_products:   top 8 by mean_sales with segment labels
-
-Uses the existing _seg_cache from forecast.py (same source of truth —
-no re-computation) and the session dataframe from session_store.
-"""
-
 from fastapi import APIRouter, HTTPException, status
 from backend.routers.forecast import _get_seg_map, _get_seg_df
 from backend.services.session_store import get_session, get_dataframe
@@ -26,10 +13,7 @@ router = APIRouter(tags=["Insights"])
     summary="Session-level dataset analytics for the Insights page",
 )
 async def get_insights(session_id: str):
-    """
-    Return segment distribution and top-products table for a session.
-    Segments come from the existing forecast.py cache — no recomputation.
-    """
+   
     session = get_session(session_id)
     if session is None:
         raise HTTPException(
@@ -44,7 +28,7 @@ async def get_insights(session_id: str):
             detail="Session data not found.",
         )
 
-    # Segment cache: {product_id → segment_string}
+    # Segment cache: {product_id -> segment_string}
     try:
         seg_map = _get_seg_map(session_id, df)
     except Exception as e:

@@ -1,20 +1,3 @@
-"""
-backend/services/logger.py
-===========================
-Structured logger used by every module in the project.
-- Text format in dev  (readable, colored)
-- JSON format in prod (parseable by any log aggregator)
-
-Usage (in any file):
-    from backend.services.logger import get_logger, Timer
-    log = get_logger(__name__)
-    log.info("Step done", extra={"rows": 90000})
-
-    with Timer("Model training", log):
-        model.fit(X, y)
-    # → logs "Model training completed  elapsed_seconds=12.34"
-"""
-
 import logging
 import logging.handlers
 import json
@@ -23,7 +6,6 @@ import time
 from pathlib import Path
 
 
-# ── JSON formatter (production) ───────────────────────────────────────────────
 
 class JsonFormatter(logging.Formatter):
     """Each log line is a single JSON object — easy to grep and parse."""
@@ -50,14 +32,9 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(payload, default=str)
 
 
-# ── Text formatter (development) ──────────────────────────────────────────────
 
 class TextFormatter(logging.Formatter):
-    """
-    Colored, readable output for local development.
-    Example:
-        [2024-01-15 10:23:44] INFO     forecastiq.pipeline.trainer — Training started
-    """
+   
     _COLORS = {
         "DEBUG":    "\033[36m",
         "INFO":     "\033[32m",
@@ -79,7 +56,6 @@ class TextFormatter(logging.Formatter):
         return line
 
 
-# ── Config reader (no circular imports) ──────────────────────────────────────
 
 def _read_log_config() -> dict:
     """Reads only the logging section from config.yaml. Falls back to safe defaults."""
@@ -92,7 +68,6 @@ def _read_log_config() -> dict:
         return {"level": "INFO", "format": "text", "rotate_mb": 10, "backup_count": 3}
 
 
-# ── Root logger initialisation (runs once per process) ───────────────────────
 
 _ready = False
 
@@ -136,39 +111,17 @@ def _init() -> None:
     _ready = True
 
 
-# ── Public API ────────────────────────────────────────────────────────────────
 
 def get_logger(name: str) -> logging.Logger:
-    """
-    Returns a named child logger under the 'forecastiq' namespace.
-
-    Args:
-        name: Use __name__ of the calling module.
-
-    Returns:
-        logging.Logger ready to use.
-
-    Example:
-        log = get_logger(__name__)
-        log.info("Data loaded", extra={"rows": 906000})
-        log.error("File not found", extra={"path": "/data/train.csv"})
-    """
+    
     _init()
     clean = name.replace("backend.", "").replace("__main__", "main")
     return logging.getLogger(f"forecastiq.{clean}")
 
 
-# ── Timer utility ─────────────────────────────────────────────────────────────
 
 class Timer:
-    """
-    Context manager that logs how long a block took.
 
-    Example:
-        with Timer("Feature engineering", log):
-            df = build_features(df)
-        # logs: "Feature engineering completed  elapsed_seconds=4.21"
-    """
     def __init__(self, label: str, logger: logging.Logger = None):
         self.label   = label
         self.logger  = logger or get_logger("timer")

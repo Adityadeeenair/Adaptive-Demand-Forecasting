@@ -1,16 +1,3 @@
-"""
-backend/routers/results.py
-===========================
-GET /results              — list all forecasts for a session
-GET /results/{forecast_id} — retrieve one full forecast by ID
-DELETE /results/{forecast_id} — remove a forecast
-
-FIX: GET /results/{forecast_id} now returns model_predictions so that
-clicking a past forecast in the History panel restores the ModelToggle
-state correctly. The original omitted this field, making model comparison
-unavailable for any historical forecast.
-"""
-
 from fastapi import APIRouter, HTTPException, status, Query
 
 from backend.models.schemas import (

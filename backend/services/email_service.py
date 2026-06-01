@@ -1,22 +1,3 @@
-"""
-backend/services/email_service.py
-===================================
-Sends forecast reports via SMTP email with a CSV attachment.
-
-Configuration — set these environment variables (or .env file):
-    SMTP_HOST       SMTP server hostname          (default: smtp.gmail.com)
-    SMTP_PORT       SMTP port                     (default: 587)
-    SMTP_USER       Sender email address
-    SMTP_PASSWORD   App password or SMTP password
-    EMAIL_FROM      Display name + address        (default: same as SMTP_USER)
-
-For Gmail: create an App Password at
-    https://myaccount.google.com/apppasswords
-Then set SMTP_USER=you@gmail.com and SMTP_PASSWORD=<16-char app password>.
-
-For other providers (SendGrid, Mailgun, etc.) just change SMTP_HOST/PORT.
-"""
-
 import os
 import io
 import csv
@@ -32,7 +13,6 @@ from backend.services.logger import get_logger
 
 log = get_logger(__name__)
 
-# ── Config from environment ────────────────────────────────────────────────────
 
 def _smtp_cfg() -> dict:
     return {
@@ -44,7 +24,6 @@ def _smtp_cfg() -> dict:
     }
 
 
-# ── Validation ─────────────────────────────────────────────────────────────────
 
 _EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
@@ -56,17 +35,9 @@ def validate_email(address: str) -> None:
         raise ValueError(f"'{address}' is not a valid email address.")
 
 
-# ── CSV builder ────────────────────────────────────────────────────────────────
 
 def build_forecast_csv(forecasts: list[dict]) -> bytes:
-    """
-    Build a CSV from a list of forecast dicts (from session_store).
-    Columns: date, store, item, predicted_sales, lower_bound, upper_bound
 
-    Each dict is one forecast run (possibly for different products/horizons).
-    All are concatenated into a single CSV so the email contains everything
-    from the current session.
-    """
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(["date", "store", "item", "predicted_sales", "lower_bound", "upper_bound"])
@@ -87,25 +58,13 @@ def build_forecast_csv(forecasts: list[dict]) -> bytes:
     return buf.getvalue().encode("utf-8")
 
 
-# ── Email sender ───────────────────────────────────────────────────────────────
 
 def send_forecast_email(
     to_address: str,
     forecasts:  list[dict],
     session_id: str,
 ) -> None:
-    """
-    Send forecast results to `to_address` as a CSV attachment.
-
-    Parameters:
-        to_address  — recipient email (already validated by caller)
-        forecasts   — list of forecast dicts from session_store
-        session_id  — used in the email subject and filename
-
-    Raises:
-        RuntimeError  — SMTP not configured (no SMTP_USER env var)
-        smtplib.SMTPException — delivery failure
-    """
+    
     cfg = _smtp_cfg()
 
     if not cfg["user"] or not cfg["password"]:
@@ -116,18 +75,15 @@ def send_forecast_email(
 
     validate_email(to_address)
 
-    # ── Build summary stats ───────────────────────────────────────────────────
     n_products = len({f.get("product_id") for f in forecasts})
     horizons   = sorted({f.get("horizon", 0) for f in forecasts})
     horizon_str = ", ".join(f"{h}d" for h in horizons)
     total_rows  = sum(len(f.get("forecast_dates", [])) for f in forecasts)
     generated   = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
 
-    # ── Build CSV attachment ──────────────────────────────────────────────────
     csv_bytes = build_forecast_csv(forecasts)
     filename  = f"forecast_export_{session_id[:8]}_{datetime.utcnow().strftime('%Y%m%d')}.csv"
 
-    # ── Compose email ─────────────────────────────────────────────────────────
     msg = MIMEMultipart("mixed")
     msg["Subject"] = f"ForecastIQ — Demand Forecast Report ({n_products} product{'s' if n_products != 1 else ''})"
     msg["From"]    = cfg["from"]

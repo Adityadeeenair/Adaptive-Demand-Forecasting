@@ -1,14 +1,3 @@
-"""
-backend/services/session_store.py
-===================================
-Redis-backed store for uploaded datasets and forecast results.
-
-DataFrames are serialized to parquet bytes for efficient storage.
-Forecast dicts are serialized to JSON.
-
-TTL: sessions expire after 24 hours of inactivity.
-"""
-
 import os
 import uuid
 import json
@@ -22,7 +11,6 @@ from backend.services.logger import get_logger
 
 log = get_logger(__name__)
 
-# ── Redis client ──────────────────────────────────────────────────────────────
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 SESSION_TTL = 60 * 60 * 24  # 24 hours
@@ -30,7 +18,6 @@ SESSION_TTL = 60 * 60 * 24  # 24 hours
 _redis = redis.from_url(REDIS_URL, decode_responses=False)
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _session_key(session_id: str) -> str:
     return f"session:{session_id}"
@@ -42,12 +29,10 @@ def _session_forecasts_key(session_id: str) -> str:
     return f"session_forecasts:{session_id}"
 
 
-# ── Session operations ────────────────────────────────────────────────────────
 
 def create_session(df: pd.DataFrame, summary: dict) -> str:
     session_id = str(uuid.uuid4())
     
-    # Serialize DataFrame to parquet bytes
     df_bytes = df.to_parquet()
     
     payload = {
@@ -93,7 +78,6 @@ def delete_session(session_id: str) -> bool:
     if not _redis.exists(_session_key(session_id)):
         return False
     
-    # Delete associated forecasts
     fids = _redis.lrange(_session_forecasts_key(session_id), 0, -1)
     for fid in fids:
         _redis.delete(_forecast_key(fid.decode()))
@@ -104,7 +88,6 @@ def delete_session(session_id: str) -> bool:
     return True
 
 
-# ── Forecast operations ───────────────────────────────────────────────────────
 
 def save_forecast(session_id: str, forecast: dict) -> str:
     forecast_id = str(uuid.uuid4())
@@ -135,7 +118,6 @@ def get_forecasts_for_session(session_id: str) -> List[dict]:
     return results
 
 
-# ── Stats ─────────────────────────────────────────────────────────────────────
 
 def store_stats() -> dict:
     sessions = len(_redis.keys("session:*"))

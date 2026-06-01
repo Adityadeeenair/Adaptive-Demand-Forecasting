@@ -1,23 +1,8 @@
-"""
-backend/models/schemas.py
-==========================
-All Pydantic request and response models for the ForecastIQ API.
-
-Changes from original:
-  - ForecastResponse: added model_predictions field (was silently missing,
-    causing ModelToggle to show identical lines for all models)
-  - ForecastRequest: store/item changed to Union[str, int] to support
-    string-keyed datasets (original ge=1 int constraint rejected string IDs)
-  - ForecastSummary, ProductInfo: store/item → Union[str, int]
-"""
-
 from __future__ import annotations
 from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional, Union
 from datetime import datetime
 
-
-# ── Upload ─────────────────────────────────────────────────────────────────────
 
 class UploadResponse(BaseModel):
     session_id:      str
@@ -35,7 +20,7 @@ class UploadResponse(BaseModel):
     sample_products: List[str]
 
 
-# ── Forecast request ───────────────────────────────────────────────────────────
+
 
 class ForecastRequest(BaseModel):
     """POST /forecast body."""
@@ -53,7 +38,7 @@ class ForecastRequest(BaseModel):
         return v
 
 
-# ── Forecast response ──────────────────────────────────────────────────────────
+
 
 class ForecastResponse(BaseModel):
     """Returned by POST /forecast."""
@@ -85,7 +70,7 @@ class ForecastResponse(BaseModel):
     )
 
 
-# ── Results list item ──────────────────────────────────────────────────────────
+
 
 class ForecastSummary(BaseModel):
     """One item in GET /results list."""
@@ -104,7 +89,7 @@ class ResultsResponse(BaseModel):
     forecasts: List[ForecastSummary]
 
 
-# ── Products ───────────────────────────────────────────────────────────────────
+
 
 class ProductInfo(BaseModel):
     """One item in GET /products response."""
@@ -122,7 +107,6 @@ class ProductsResponse(BaseModel):
     products:   List[ProductInfo]
 
 
-# ── Health ─────────────────────────────────────────────────────────────────────
 
 class HealthResponse(BaseModel):
     status:        str
@@ -131,7 +115,6 @@ class HealthResponse(BaseModel):
     timestamp:     str
 
 
-# ── Error ─────────────────────────────────────────────────────────────────────
 
 class ErrorResponse(BaseModel):
     status:  str = "error"

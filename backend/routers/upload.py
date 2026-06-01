@@ -1,25 +1,3 @@
-"""
-backend/routers/upload.py
-==========================
-POST /upload — accepts a CSV file, adapts it, stores it in session.
-
-Flow:
-    1. User uploads CSV via multipart form
-    2. File bytes are written to a temp path
-    3. data_adapter.adapt() — detects columns, cleans, standardises
-    4. Basic sanity check on adapter output (inline — no extra imports)
-    5. Cleaned df stored in session_store with new session_id
-    6. Dataset summary returned to the user
-
-The adapter handles ALL real-world CSV variation:
-  - Any column names (date/timestamp/day, sales/demand/quantity, etc.)
-  - Missing store/item columns (defaults to "1")
-  - Unknown grouping column names (structural inference)
-  - Date gaps, missing values, outliers, weekly/monthly data
-
-No column validation is done before adapt() is called.
-"""
-
 import tempfile
 import os
 from fastapi import APIRouter, UploadFile, File, HTTPException, status
@@ -55,23 +33,7 @@ async def upload_csv(
         )
     ),
 ) -> UploadResponse:
-    """
-    Upload a sales CSV and receive a session_id for forecasting.
 
-    **Flexible column detection** — column names are detected automatically:
-    - Date: `date`, `timestamp`, `day`, `week`, `period`, ...
-    - Sales: `sales`, `demand`, `quantity`, `revenue`, `units`, ...
-    - Store (optional): `store`, `location`, `region`, `branch`, `division`, ...
-    - Item (optional): `item`, `product`, `sku`, `brand`, `category`, ...
-
-    If store or item columns are absent the dataset is treated as a single
-    time series. If they use non-standard names, structural inference
-    (column cardinality and type analysis) identifies them automatically.
-
-    The returned `session_id` is required for all `/forecast` calls.
-    """
-
-    # ── Validate file extension ───────────────────────────────────────────
     if not file.filename.lower().endswith(".csv"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -80,7 +42,6 @@ async def upload_csv(
 
     log.info("Upload received", extra={"file_name": file.filename})
 
-    # ── Read file bytes ───────────────────────────────────────────────────
     with Timer("File read", log):
         try:
             contents = await file.read()
@@ -98,18 +59,12 @@ async def upload_csv(
                 detail=f"Could not read uploaded file: {e}"
             )
 
-    # ── Write to temp file ────────────────────────────────────────────────
     with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as tmp:
         tmp.write(contents)
         tmp_path = tmp.name
 
     try:
-        # ── Data Adapter ──────────────────────────────────────────────────
-        # This is the ONLY place CSV data is processed.
-        # The adapter handles everything: column detection, date parsing,
-        # missing values, outliers, gaps, weekly→daily resampling.
-        # It raises AdapterError (shown to the user) for unrecoverable issues.
-        # NO column validation is done before this call.
+
         with Timer("Data adaptation", log):
             try:
                 df = adapt(tmp_path)
@@ -125,11 +80,7 @@ async def upload_csv(
                     detail=f"Data processing error: {e}"
                 )
 
-        # ── Inline output validation ───────────────────────────────────────
-        # The adapter guarantees its output contract, but we do a minimal
-        # sanity check here so any internal adapter bug gives a clear error
-        # rather than a confusing downstream crash.
-        # This does NOT import any extra function — it's three lines inline.
+
         if len(df) < 30:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -143,7 +94,6 @@ async def upload_csv(
     finally:
         os.unlink(tmp_path)   # always clean up temp file
 
-    # ── Store in session ──────────────────────────────────────────────────
     summary    = get_dataset_summary(df)
     session_id = create_session(df, summary)
 

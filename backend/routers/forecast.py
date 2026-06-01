@@ -1,29 +1,3 @@
-"""
-backend/routers/forecast.py
-=============================
-POST /forecast        — run inference for a store/item/horizon
-GET  /products/{id}   — list products with segments (cached per session)
-GET  /insights/{id}   — dataset statistics and segment distribution
-
-SINGLE SOURCE OF TRUTH FOR SEGMENTS
-====================================
-All segment information now flows through a single path:
-
-  1. On first /products call:
-       compute_segments(uploaded_df) → stored in _seg_cache[session_id]
-       _seg_cache[session_id] is a dict: {product_id → segment_string}
-
-  2. On /forecast call:
-       segment = _get_segment_for_product(session_id, df, pid)
-       passed directly to run_inference(segment=segment)
-
-  3. In run_inference():
-       uses the segment passed by caller — does NOT load segments.pkl
-       (segments.pkl is the training-era Kaggle segments, wrong for new data)
-
-This guarantees the product list and forecast card always show the same label.
-"""
-
 from datetime import datetime
 from pathlib import Path
 from fastapi import APIRouter, HTTPException, status
@@ -42,19 +16,12 @@ log    = get_logger(__name__)
 router = APIRouter(tags=["Forecast"])
 
 
-# ── Single-source segmentation cache ─────────────────────────────────────────
-# Structure: { session_id: { product_id: segment_string } }
-#             { session_id + "__df": full seg_df DataFrame }
-# Populated on first /products call, reused by /forecast and /insights.
-# This dict IS the single source of truth for all segment labels.
+
 _seg_cache: dict = {}
 
 
 def _get_seg_map(session_id: str, df) -> dict:
-    """
-    Return {product_id → segment} dict for this session.
-    Computes once and caches. All callers use this same result.
-    """
+
     if session_id not in _seg_cache:
         log.info("Computing segmentation (first call for session)",
                  extra={"session_id": session_id})
@@ -74,16 +41,12 @@ def _get_seg_map(session_id: str, df) -> dict:
 
 
 def _get_seg_df(session_id: str, df):
-    """Return full segmentation DataFrame (for insights endpoint)."""
     _get_seg_map(session_id, df)  # ensure computed
     return _seg_cache.get(f"{session_id}__df")
 
 
 def _get_segment_for_product(session_id: str, df, pid: str) -> str:
-    """
-    Look up segment for one product from the session cache.
-    Falls back to 'unknown' if this product wasn't in the uploaded data.
-    """
+
     seg_map = _get_seg_map(session_id, df)
     return seg_map.get(pid, "unknown")
 
@@ -96,7 +59,7 @@ def _parse_pid(pid: str):
     return pid[:idx], pid[idx + 1:]
 
 
-# ── POST /forecast ─────────────────────────────────────────────────────────────
+#  POST /forecast 
 
 @router.post(
     "/forecast",
@@ -110,13 +73,7 @@ def _parse_pid(pid: str):
     },
 )
 async def generate_forecast(body: ForecastRequest) -> ForecastResponse:
-    """
-    Generate a demand forecast for a specific store-item pair.
 
-    Segment is resolved from the session cache (same source as product list)
-    and passed explicitly to run_inference. This is the fix for the mismatch
-    between the product list label and the forecast card label.
-    """
     session = get_session(body.session_id)
     if session is None:
         raise HTTPException(
@@ -127,8 +84,6 @@ async def generate_forecast(body: ForecastRequest) -> ForecastResponse:
     df  = session["df"]
     pid = f"{body.store}_{body.item}"
 
-    # ── SINGLE SOURCE OF TRUTH: segment from session cache ────────────────
-    # This is the same cache used by /products, so labels always match.
     segment = _get_segment_for_product(body.session_id, df, pid)
 
     log.info("Forecast requested", extra={
@@ -144,7 +99,7 @@ async def generate_forecast(body: ForecastRequest) -> ForecastResponse:
                 store   = body.store,
                 item    = body.item,
                 horizon = body.horizon,
-                segment = segment,   # ← passed from cache, not recomputed
+                segment = segment,   
             )
         except FileNotFoundError:
             raise HTTPException(
@@ -162,9 +117,7 @@ async def generate_forecast(body: ForecastRequest) -> ForecastResponse:
 
     generated_at  = datetime.utcnow().isoformat()
 
-    # Use per-product metrics computed by run_inference (last-30-days holdout).
-    # Fall back to the global training_results.pkl only when the per-product
-    # computation returned empty (history too short for a 30-day split).
+
     per_product_metrics = result.get("model_metrics", {})
     if not per_product_metrics:
         metrics_path = Path(__file__).resolve().parents[1] / "saved_models" / "training_results.pkl"
@@ -219,7 +172,7 @@ async def generate_forecast(body: ForecastRequest) -> ForecastResponse:
     )
 
 
-# ── GET /products/{session_id} ────────────────────────────────────────────────
+#  GET /products/{session_id} 
 
 @router.get(
     "/products/{session_id}",
@@ -228,11 +181,7 @@ async def generate_forecast(body: ForecastRequest) -> ForecastResponse:
     summary="List all products in a session",
 )
 async def list_products(session_id: str) -> ProductsResponse:
-    """
-    Return all products with their demand segments.
-    Segmentation is computed once and cached. The /forecast endpoint
-    uses the same cache, guaranteeing consistent segment labels.
-    """
+   
     session = get_session(session_id)
     if session is None:
         raise HTTPException(404, detail=f"Session '{session_id}' not found.")
@@ -264,7 +213,7 @@ async def list_products(session_id: str) -> ProductsResponse:
     return ProductsResponse(session_id=session_id, total=len(products), products=products)
 
 
-# ── GET /insights/{session_id} ────────────────────────────────────────────────
+#  GET /insights/{session_id} 
 
 @router.get("/insights/{session_id}", status_code=200, summary="Dataset insights")
 async def get_insights(session_id: str):
