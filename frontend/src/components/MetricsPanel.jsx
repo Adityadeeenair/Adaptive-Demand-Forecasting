@@ -2,9 +2,9 @@ import { fmtNum, fmtPct } from '../utils/format'
 import { MODELS } from './ModelToggle'
 
 const MODEL_DESCRIPTIONS = {
-  random_forest: 'Bagging — baseline tree model',
-  xgboost:       'Gradient boosting — XGBoost',
-  lightgbm:      'Fast boosting — LightGBM',
+  random_forest: 'Bagging baseline tree model',
+  xgboost:       'Gradient boosting - XGBoost',
+  lightgbm:      'Fast boosting - LightGBM',
   ensemble:      'NNLS weighted combination',
 }
 
