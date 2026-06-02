@@ -87,7 +87,6 @@ export default function Home({ onSessionCreated }) {
         }}>
 
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '4px 12px', background: 'var(--amber-glow)', border: '1px solid var(--amber-dim)', borderRadius: 'var(--radius-sm)', marginBottom: 28 }}>
-            <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--amber)' }} />
             <span style={{ fontSize: 10, fontFamily: 'var(--font-display)', color: 'var(--amber)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Demand Intelligence</span>
           </div>
 
@@ -125,7 +124,7 @@ export default function Home({ onSessionCreated }) {
               ))}
             </div>
             <p style={{ marginTop: 10, fontSize: 11, color: 'var(--text-tertiary)', opacity: 0.6, lineHeight: 1.5 }}>
-              Column names detected automatically — exact match not required.
+              Column names detected automatically. Exact match not required.
             </p>
           </div>
 
@@ -165,7 +164,7 @@ export default function Home({ onSessionCreated }) {
                     style={{ color: 'var(--amber)', textDecoration: 'underline', cursor: 'pointer' }}>
                     Download sample CSV
                   </a>
-                  {' '}— 10 products, 180 days, mixed segments.
+                  {' '}. 10 products, 180 days, mixed segments.
                 </p>
               )}
             </>
