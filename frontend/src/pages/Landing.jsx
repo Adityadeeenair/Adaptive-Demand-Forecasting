@@ -4,14 +4,14 @@ import { useState, useEffect } from 'react'
 const FEATURES = [
   { icon: '⬡', title: 'Demand Segmentation',  desc: 'Automatically classifies products into stable, seasonal, volatile, and intermittent demand patterns.' },
   { icon: '◈', title: 'Ensemble ML Models',    desc: 'Random Forest, XGBoost, and LightGBM combined via non-negative least squares for optimal accuracy.' },
-  { icon: '◎', title: 'Confidence Intervals',  desc: '80% prediction bands via quantile regression — know the range, not just the point estimate.' },
+  { icon: '◎', title: 'Confidence Intervals',  desc: '80% prediction bands via quantile regression, showing the range and not just a single point estimate.' },
   { icon: '⊕', title: 'Model Comparison',      desc: 'Compare all models side-by-side on the same chart. See which model fits your data best.' },
   { icon: '◇', title: 'Dataset Insights',      desc: 'Segment distribution, top products by volume, and data quality diagnostics at a glance.' },
   { icon: '↓', title: 'Export Ready',          desc: 'Download forecasts as CSV for use in any downstream planning or inventory system.' },
 ]
 
 const PIPELINE = [
-  { step: '01', label: 'Upload',   desc: 'Drop a CSV — column names detected automatically' },
+  { step: '01', label: 'Upload',   desc: 'Drop a CSV, column names detected automatically' },
   { step: '02', label: 'Segment',  desc: 'System analyses demand patterns per product' },
   { step: '03', label: 'Train',    desc: 'Three ML models trained with Optuna tuning' },
   { step: '04', label: 'Forecast', desc: 'Ensemble predictions with confidence bands' },
@@ -35,7 +35,7 @@ const SEGMENTS = [
     key: 'stable',
     label: 'Stable',
     color: '#2ecc71',
-    desc: 'Flat, consistent demand. Predictable — high confidence bands.',
+    desc: 'Flat, consistent demand. Predictable  high confidence bands.',
     bars: [60, 62, 58, 61, 60, 63, 59, 62, 60, 61, 59, 62],
   },
   {
@@ -200,7 +200,7 @@ export default function Landing() {
 
           <p style={{ fontSize: 17, color: 'var(--text-secondary)', lineHeight: 1.75, maxWidth: 560, margin: '0 auto 40px' }}>
             Upload retail sales data. Get demand segmentation, multi-model ML forecasts,
-            and confidence intervals — in minutes, not months.
+            and confidence intervals. All in minutes, not months.
           </p>
 
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
