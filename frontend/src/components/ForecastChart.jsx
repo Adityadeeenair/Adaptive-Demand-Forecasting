@@ -150,7 +150,7 @@ export default function ForecastChart({ forecast }) {
       fontSize: 12,
       letterSpacing: '0.06em',
     }}>
-      NO FORECAST YET — RUN A PREDICTION ABOVE
+      NO FORECAST YET. RUN A PREDICTION ABOVE
     </div>
   )
 
