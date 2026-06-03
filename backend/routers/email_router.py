@@ -54,10 +54,14 @@ async def send_email(body: EmailRequest):
             detail=str(e),
         )
     except Exception as e:
-        log.error("Email delivery failed", extra={"error": str(e), "to": body.email})
+        import traceback
+    
+        log.error(f"EMAIL FAILURE: {repr(e)}")
+        log.error(traceback.format_exc())
+    
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to send email: {e}",
+            detail=str(e),
         )
 
     return {
