@@ -145,8 +145,12 @@ def send_forecast_email(
 
     with smtplib.SMTP(cfg["host"], cfg["port"], timeout=20) as smtp:
         smtp.ehlo()
+        log.info("STEP 2: EHLO success")
         smtp.starttls()
+        log.info("STEP 3: TLS success")
         smtp.login(cfg["user"], cfg["password"])
+        log.info("STEP 4: Login success")
         smtp.sendmail(cfg["from"], to_address, msg.as_string())
+        log.info("STEP 5: Email sent")
 
     log.info("Email sent successfully", extra={"to": to_address})
