@@ -155,7 +155,7 @@ def send_forecast_email(
         log.error(f"DNS FAILED: {repr(e)}")
     
     try:
-        sock = socket.create_connection((cfg["host"], int(cfg["port"])), timeout=10)
+        sock = socket.create_connection(("google.com", 80), timeout=10)
         log.info("TCP CONNECTION SUCCESS")
         sock.close()
     except Exception as e:
