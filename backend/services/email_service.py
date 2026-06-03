@@ -142,6 +142,24 @@ def send_forecast_email(
     log.info("Sending forecast email", extra={
         "to": to_address, "products": n_products, "rows": total_rows,
     })
+    
+    import socket
+    
+    log.info(f"SMTP_HOST={cfg['host']}")
+    log.info(f"SMTP_PORT={cfg['port']}")
+    
+    try:
+        ip = socket.gethostbyname(cfg["host"])
+        log.info(f"DNS OK: {ip}")
+    except Exception as e:
+        log.error(f"DNS FAILED: {repr(e)}")
+    
+    try:
+        sock = socket.create_connection((cfg["host"], int(cfg["port"])), timeout=10)
+        log.info("TCP CONNECTION SUCCESS")
+        sock.close()
+    except Exception as e:
+        log.error(f"TCP CONNECTION FAILED: {repr(e)}")
 
     with smtplib.SMTP(cfg["host"], cfg["port"], timeout=20) as smtp:
         smtp.ehlo()
