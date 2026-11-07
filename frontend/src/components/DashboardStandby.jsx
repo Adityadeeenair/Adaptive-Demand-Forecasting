@@ -392,83 +392,171 @@ export function InferenceTelemetryDeck() {
   )
 }
 
-// ── Standby Metrics Deck (Right Panel: Single Continuous Spec Sheet) ──────────
+// ── Standby Metrics Deck (Right Panel: Structured Model Scorecard) ────────────
 export function MetricsStandbyDeck() {
-  const specs = [
-    {
-      title: 'PRIMARY METRIC',
-      metric: 'WMAPE',
-      color: 'var(--amber)',
-      desc: 'Weighted Mean Absolute Percentage Error. Retail volume-weighted accuracy benchmark.',
-    },
-    {
-      title: 'DAILY VARIANCE',
-      metric: 'MAE',
-      color: '#4a9eff',
-      desc: 'Mean Absolute Error. Direct unit deviation per day against actual observations.',
-    },
-    {
-      title: 'VALIDATION PROTOCOL',
-      metric: 'TimeSeriesSplit (5-Fold)',
-      color: 'var(--text-primary)',
-      desc: 'Expanding window folds with strict temporal masking to eliminate lookahead bias.',
-    },
-    {
-      title: 'UNCERTAINTY CORRIDOR',
-      metric: '80% Empirical Coverage',
-      color: 'var(--green)',
-      desc: 'Quantile loss bounds at q0.10 and q0.90 for inventory safety stock buffers.',
-    },
-    {
-      title: 'META-LEARNER',
-      metric: 'NNLS Optimization',
-      color: 'var(--text-secondary)',
-      desc: 'Non-negative least squares out-of-fold weights. Constraints: w_i >= 0, Sum(w_i) = 1.0.',
-    },
-  ]
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+      {/* Target Objectives: 2 cleanly aligned KPI cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <div style={{
+          padding: '10px 12px',
+          background: 'var(--bg-elevated)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-md)',
+        }}>
+          <span style={{
+            fontSize: 9,
+            fontFamily: 'var(--font-mono)',
+            color: 'var(--text-tertiary)',
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            display: 'block',
+            marginBottom: 4,
+          }}>
+            PRIMARY TARGET
+          </span>
+          <span style={{
+            fontSize: 16,
+            fontFamily: 'var(--font-mono)',
+            fontWeight: 700,
+            color: 'var(--amber)',
+            display: 'block',
+            marginBottom: 2,
+          }}>
+            WMAPE
+          </span>
+          <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
+            Volume error
+          </span>
+        </div>
+
+        <div style={{
+          padding: '10px 12px',
+          background: 'var(--bg-elevated)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-md)',
+        }}>
+          <span style={{
+            fontSize: 9,
+            fontFamily: 'var(--font-mono)',
+            color: 'var(--text-tertiary)',
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            display: 'block',
+            marginBottom: 4,
+          }}>
+            UNIT VARIANCE
+          </span>
+          <span style={{
+            fontSize: 16,
+            fontFamily: 'var(--font-mono)',
+            fontWeight: 700,
+            color: '#4a9eff',
+            display: 'block',
+            marginBottom: 2,
+          }}>
+            MAE
+          </span>
+          <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
+            Units / day
+          </span>
+        </div>
+      </div>
+
+      {/* Ensemble Model Pipeline Standby Roster */}
       <div style={{
+        padding: '12px 14px',
+        background: 'var(--bg-elevated)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-md)',
+      }}>
+        <div style={{
+          fontSize: 9,
+          fontFamily: 'var(--font-mono)',
+          color: 'var(--text-tertiary)',
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          marginBottom: 10,
+        }}>
+          Ensemble Roster : 4 Models
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {[
+            { name: 'NNLS Ensemble', type: 'Optimal Weights', color: 'var(--amber)' },
+            { name: 'LightGBM',      type: 'Histogram Trees', color: '#2ecc71' },
+            { name: 'XGBoost',       type: 'Optuna CV Folds', color: '#9b59b6' },
+            { name: 'Random Forest', type: 'Bagging Baseline', color: '#4a9eff' },
+          ].map((m) => (
+            <div
+              key={m.name}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontSize: 11,
+                fontFamily: 'var(--font-mono)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: m.color, flexShrink: 0 }} />
+                <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{m.name}</span>
+              </div>
+              <span style={{ color: 'var(--text-tertiary)', fontSize: 10 }}>{m.type}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Validation Protocol specs (Cleanly aligned key-value pairs) */}
+      <div style={{
+        padding: '12px 14px',
+        background: 'var(--bg-surface)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-md)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+        fontSize: 11,
+        fontFamily: 'var(--font-mono)',
+      }}>
+        <div style={{
+          fontSize: 9,
+          color: 'var(--text-tertiary)',
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          marginBottom: 2,
+        }}>
+          Validation Protocol
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ color: 'var(--text-secondary)' }}>Cross-Validation</span>
+          <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>5-Fold TimeSeries</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ color: 'var(--text-secondary)' }}>Safety Corridor</span>
+          <span style={{ color: 'var(--green)', fontWeight: 600 }}>80% Empirical</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ color: 'var(--text-secondary)' }}>Temporal Mask</span>
+          <span style={{ color: 'var(--text-primary)' }}>Zero Leakage</span>
+        </div>
+      </div>
+
+      {/* Clean status pill */}
+      <div style={{
+        padding: '8px 12px',
+        background: 'rgba(245, 166, 35, 0.05)',
+        border: '1px solid var(--amber-dim)',
+        borderRadius: 'var(--radius-sm)',
         fontSize: 10,
         fontFamily: 'var(--font-mono)',
-        color: 'var(--text-tertiary)',
-        letterSpacing: '0.08em',
-        textTransform: 'uppercase',
-        paddingBottom: 8,
-        borderBottom: '1px solid var(--border)',
+        color: 'var(--text-secondary)',
+        textAlign: 'center',
       }}>
-        Validation Blueprint
+        Run a forecast to compute live out-of-fold scores
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {specs.map((item, idx) => (
-          <div
-            key={item.title}
-            style={{
-              paddingBottom: idx === specs.length - 1 ? 0 : 12,
-              borderBottom: idx === specs.length - 1 ? 'none' : '1px solid rgba(255, 255, 255, 0.04)',
-            }}
-          >
-            <div style={{
-              display: 'flex',
-              alignItems: 'baseline',
-              justifyContent: 'space-between',
-              marginBottom: 3,
-            }}>
-              <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--text-tertiary)', letterSpacing: '0.06em' }}>
-                {item.title}
-              </span>
-              <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', fontWeight: 700, color: item.color }}>
-                {item.metric}
-              </span>
-            </div>
-            <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.45 }}>
-              {item.desc}
-            </p>
-          </div>
-        ))}
-      </div>
     </div>
   )
 }
