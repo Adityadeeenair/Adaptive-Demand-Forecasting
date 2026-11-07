@@ -9,9 +9,29 @@ import Insights from './pages/Insights'
 import { api } from './api/client'
 
 export default function App() {
-  const [sessionId, setSessionId] = useState(null)
-  const [summary, setSummary] = useState(null)
-  const [lastForecast, setLastForecast] = useState(null)
+  const [sessionId, setSessionId] = useState(() => {
+    try {
+      return sessionStorage.getItem('adf_session_id') || null
+    } catch (_) {
+      return null
+    }
+  })
+  const [summary, setSummary] = useState(() => {
+    try {
+      const raw = sessionStorage.getItem('adf_summary')
+      return raw ? JSON.parse(raw) : null
+    } catch (_) {
+      return null
+    }
+  })
+  const [lastForecast, setLastForecast] = useState(() => {
+    try {
+      const raw = sessionStorage.getItem('adf_last_forecast')
+      return raw ? JSON.parse(raw) : null
+    } catch (_) {
+      return null
+    }
+  })
   const [apiStatus, setApiStatus] = useState('connecting')
 
   useEffect(() => {
@@ -39,9 +59,22 @@ export default function App() {
   const handleSessionCreated = (id, sum) => {
     setSessionId(id)
     setSummary(sum)
+    try {
+      if (id) sessionStorage.setItem('adf_session_id', id)
+      else sessionStorage.removeItem('adf_session_id')
+
+      if (sum) sessionStorage.setItem('adf_summary', JSON.stringify(sum))
+      else sessionStorage.removeItem('adf_summary')
+    } catch (_) {}
   }
 
-  const handleForecastUpdate = (fc) => setLastForecast(fc)
+  const handleForecastUpdate = (fc) => {
+    setLastForecast(fc)
+    try {
+      if (fc) sessionStorage.setItem('adf_last_forecast', JSON.stringify(fc))
+      else sessionStorage.removeItem('adf_last_forecast')
+    } catch (_) {}
+  }
 
   return (
     <BrowserRouter>

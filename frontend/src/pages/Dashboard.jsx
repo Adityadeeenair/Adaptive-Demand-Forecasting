@@ -345,7 +345,37 @@ export default function Dashboard({ sessionId, summary, onForecastUpdate }) {
           </div>
 
           {error && (
-            <div style={{ marginLeft: 'auto', padding: '8px 14px', background: 'rgba(231,76,60,0.08)', border: '1px solid rgba(231,76,60,0.3)', borderRadius: 'var(--radius-md)', fontSize: 12, color: 'var(--red)', maxWidth: 360 }}>{error}</div>
+            <div style={{
+              marginLeft: 'auto',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '8px 14px',
+              background: 'rgba(231,76,60,0.08)',
+              border: '1px solid rgba(231,76,60,0.3)',
+              borderRadius: 'var(--radius-md)',
+              fontSize: 12,
+              color: 'var(--red)',
+              maxWidth: 420,
+            }}>
+              <span>{error}</span>
+              <button
+                onClick={() => navigate('/upload')}
+                style={{
+                  padding: '3px 8px',
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 4,
+                  fontSize: 11,
+                  fontFamily: 'var(--font-mono)',
+                  color: 'var(--text-primary)',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Re-upload dataset →
+              </button>
+            </div>
           )}
 
           {forecast && (
