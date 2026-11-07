@@ -1,40 +1,3 @@
-"""
-backend/pipeline/segmentation.py
-==================================
-Computes demand behavior metrics and assigns a segment to every product.
-
-ROOT CAUSES FIXED IN THIS VERSION:
-
-  1. SEASONALITY METRIC CONFUSED TREND WITH SEASONALITY
-     The original _weekly_seasonality() computed lag-7 autocorrelation on
-     the raw series. Any monotone upward trend has lag-7 autocorrelation
-     near 0.97, making ALL trending products appear "seasonal". This caused
-     smooth upward trends to be labeled "seasonal_stable" instead of
-     "trending".
-     Fix: Detrend the series (remove linear trend) before computing lag-7
-     autocorrelation. Residuals of a pure trend have near-zero autocorr;
-     residuals of a truly weekly-seasonal series retain high autocorr.
-
-  2. TREND THRESHOLD TOO TIGHT FOR REAL-WORLD DATA
-     trending_slope_threshold = 0.025 was calibrated on the Kaggle training
-     data where ALL products had slope ≈ 0.0002 (essentially flat). Real
-     datasets with actual trends have slopes of 0.003–0.015 — still below
-     the original threshold, so "trending" was never assigned.
-     Fix: Lower threshold to 0.003. Also compute trend strength on the
-     detrended residuals' envelope (removes noise from trend slope estimate).
-
-  3. VOLATILITY METRIC MIXES TREND VARIANCE WITH NOISE VARIANCE
-     CV = std/mean on a trending series gives high variance even when the
-     day-to-day noise is small, because the rising values inflate std.
-     Fix: Compute CV on detrended residuals so volatility measures
-     actual noise, not the systematic trend component.
-
-  4. SEGMENT PRIORITY ORDER CORRECTED
-     With the old raw-autocorr metric: trending products → seasonal_stable.
-     After detrending: trending is detected first (priority 2), seasonal
-     is only assigned when genuine weekly periodicity exists after removing trend.
-"""
-
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -52,7 +15,7 @@ def _cfg() -> dict:
         return yaml.safe_load(f)
 
 
-# ── Helper: linear detrend ────────────────────────────────────────────────────
+# --- Helper: linear detrend ---------------------------------------------------------------------------------
 
 def _detrend(values: np.ndarray) -> np.ndarray:
     """Remove linear trend from a series. Returns residuals."""
@@ -63,14 +26,10 @@ def _detrend(values: np.ndarray) -> np.ndarray:
     return values - trend
 
 
-# ── Individual metric functions ───────────────────────────────────────────────
+# --- Individual metric functions ---------------------------------------------------------------------------------
 
 def _trend_strength(values: np.ndarray) -> float:
-    """
-    Normalised linear slope (slope / mean).
-    Sign indicates direction: positive = upward, negative = downward.
-    Scale-independent so it works across different sales magnitudes.
-    """
+    
     if len(values) < 10:
         return 0.0
     mean = np.mean(values)
@@ -82,13 +41,7 @@ def _trend_strength(values: np.ndarray) -> float:
 
 
 def _volatility_cv(values: np.ndarray) -> float:
-    """
-    Coefficient of variation computed on DETRENDED residuals.
-
-    FIX: Using raw values on a trending series inflates std because the
-    systematic rise looks like variance. Detrending isolates actual
-    day-to-day noise, giving a true volatility signal.
-    """
+   
     residuals = _detrend(values)
     mean = np.mean(np.abs(values))          # use original mean for scale
     return float(np.std(residuals) / mean) if mean != 0 else 0.0
@@ -100,19 +53,7 @@ def _zero_ratio(values: np.ndarray) -> float:
 
 
 def _weekly_seasonality(values: np.ndarray) -> float:
-    """
-    Lag-7 autocorrelation computed on DETRENDED residuals.
-
-    FIX: Computing on raw values gives autocorr ≈ 0.97 for any monotone
-    upward trend — confusing trend with weekly seasonality. After removing
-    the linear trend, only genuine weekly periodicity produces high autocorr.
-
-    Examples:
-        Pure upward trend:  raw=0.97, detrended≈0.05  → correctly NOT seasonal
-        Weekly seasonal:    raw=0.92, detrended≈0.92  → correctly seasonal
-        Trend + seasonal:   detrended≈0.93            → correctly seasonal
-        Stable/flat:        raw≈-0.02, detrended≈-0.02 → correctly NOT seasonal
-    """
+   
     lag = 7
     if len(values) <= lag * 2:
         return 0.0
@@ -124,7 +65,7 @@ def _weekly_seasonality(values: np.ndarray) -> float:
     return float(corr) if not np.isnan(corr) else 0.0
 
 
-# ── Batch metric computation ──────────────────────────────────────────────────
+# -----Batch metric computation---------------------------------------------------------------------------------
 
 def compute_behavior_metrics(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -178,25 +119,7 @@ def compute_behavior_metrics(df: pd.DataFrame) -> pd.DataFrame:
 # ── Segment assignment ────────────────────────────────────────────────────────
 
 def assign_segments(metrics_df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Assign demand segment using corrected thresholds and priority rules.
-
-    KEY CHANGES:
-    - trending_slope_threshold lowered from 0.025 → 0.003
-      (original threshold never triggered on real-world data)
-    - Seasonality is now measured on detrended residuals
-      (so trending series are NOT misclassified as seasonal)
-    - Volatility is measured on detrended residuals
-      (so trending series are NOT misclassified as volatile)
-
-    Priority order (first match wins):
-        1. intermittent      zero_ratio > 0.40
-        2. trending          |trend_slope| > 0.003
-        3. seasonal_volatile seasonal AND high volatility
-        4. seasonal_stable   seasonal
-        5. volatile          high volatility
-        6. stable            (default)
-    """
+   
     if metrics_df.empty:
         log.warning("assign_segments called with empty DataFrame")
         metrics_df["final_segment"] = pd.Series(dtype=str)

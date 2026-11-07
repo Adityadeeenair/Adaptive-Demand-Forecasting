@@ -1,16 +1,3 @@
-"""
-backend/models/schemas.py
-==========================
-All Pydantic request and response models for the ForecastIQ API.
-
-Changes from original:
-  - ForecastResponse: added model_predictions field (was silently missing,
-    causing ModelToggle to show identical lines for all models)
-  - ForecastRequest: store/item changed to Union[str, int] to support
-    string-keyed datasets (original ge=1 int constraint rejected string IDs)
-  - ForecastSummary, ProductInfo: store/item → Union[str, int]
-"""
-
 from __future__ import annotations
 from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional, Union

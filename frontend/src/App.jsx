@@ -9,15 +9,31 @@ import Insights from './pages/Insights'
 import { api } from './api/client'
 
 export default function App() {
-  const [sessionId,  setSessionId]  = useState(null)
-  const [summary,    setSummary]    = useState(null)
+  const [sessionId, setSessionId] = useState(null)
+  const [summary, setSummary] = useState(null)
   const [lastForecast, setLastForecast] = useState(null)
-  const [apiStatus,  setApiStatus]  = useState(null)
+  const [apiStatus, setApiStatus] = useState('connecting')
 
   useEffect(() => {
-    api.health()
-      .then(() => setApiStatus(true))
-      .catch(() => setApiStatus(false))
+    let interval = null
+
+    const check = () => {
+      api.health()
+        .then(() => {
+          setApiStatus('online')
+          if (interval) clearInterval(interval)
+        })
+        .catch(() => {
+          setApiStatus('waking_up')
+        })
+    }
+
+    check()
+    interval = setInterval(check, 6000)
+
+    return () => {
+      if (interval) clearInterval(interval)
+    }
   }, [])
 
   const handleSessionCreated = (id, sum) => {

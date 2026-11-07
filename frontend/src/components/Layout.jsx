@@ -12,8 +12,42 @@ export default function Layout({ children, apiStatus }) {
   const { pathname } = useLocation()
   const isActive = (p) => p === '/' ? pathname === '/' : pathname.startsWith(p)
 
+  const isLive = apiStatus === true || apiStatus === 'online'
+  const isWakingUp = apiStatus === 'waking_up'
+
+  const statusColor = isLive
+    ? 'var(--green)'
+    : isWakingUp
+    ? 'var(--amber)'
+    : 'var(--red)'
+
+  const statusText = isLive
+    ? 'LIVE'
+    : isWakingUp
+    ? 'WAKING UP'
+    : 'OFFLINE'
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {isWakingUp && (
+        <div style={{
+          background: 'rgba(245, 166, 35, 0.12)',
+          borderBottom: '1px solid rgba(245, 166, 35, 0.3)',
+          color: 'var(--amber)',
+          fontSize: 12,
+          padding: '8px 24px',
+          textAlign: 'center',
+          fontFamily: 'var(--font-mono)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+        }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--amber)', animation: 'pulse 1.2s infinite' }} />
+          <span>Backend container is spinning up on Render free-tier (~30-40s on first visit). Automatically reconnecting...</span>
+        </div>
+      )}
+
       <nav style={{
         display: 'flex',
         alignItems: 'center',
@@ -52,14 +86,14 @@ export default function Layout({ children, apiStatus }) {
           })}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }} title={isWakingUp ? 'Render free tier container waking up' : ''}>
           <span style={{
             width: 6, height: 6, borderRadius: '50%',
-            background: apiStatus === false ? 'var(--red)' : 'var(--green)',
-            boxShadow: `0 0 8px ${apiStatus === false ? 'var(--red)' : 'var(--green)'}`,
+            background: statusColor,
+            boxShadow: `0 0 8px ${statusColor}`,
           }} />
-          <span style={{ fontSize: 11, fontFamily: 'var(--font-display)', color: 'var(--text-tertiary)' }}>
-            {apiStatus === false ? 'OFFLINE' : 'LIVE'}
+          <span style={{ fontSize: 11, fontFamily: 'var(--font-display)', color: isWakingUp ? 'var(--amber)' : 'var(--text-tertiary)' }}>
+            {statusText}
           </span>
         </div>
       </nav>

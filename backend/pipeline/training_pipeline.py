@@ -1,24 +1,3 @@
-"""
-backend/pipeline/training_pipeline.py
-=======================================
-Trains all ML models and saves them to disk.
-
-Replaces: src/ml_models.py + src/ensemble_models.py + ML section of src/main.py
-
-Upgrades over original:
-  - TimeSeriesSplit CV instead of single train/test split    
-  - Optuna hyperparameter tuning for XGB and LGB             
-  - NNLS stacked ensemble — learned, non-negative weights    
-  - Quantile LGB models for 80% prediction intervals         
-  - joblib model saving — no retraining on every run         
-  - Completely separated from inference pipeline             
-  - Structured logging throughout                            
-
-To run:
-    cd <project_root>
-    python -m backend.pipeline.training_pipeline
-"""
-
 import copy
 import warnings
 import numpy as np
@@ -49,7 +28,7 @@ from backend.pipeline.ensemble import NNLSEnsemble   # stable pickle path
 log = get_logger(__name__)
 
 
-# ── Config + paths ────────────────────────────────────────────────────────────
+# --= Config + paths---------------------------------------------------------------------------------
 
 def _cfg() -> dict:
     p = Path(__file__).resolve().parents[1] / "config.yaml"
@@ -64,7 +43,7 @@ def _models_dir() -> Path:
     return d
 
 
-# ── Metrics ───────────────────────────────────────────────────────────────────
+# --- Metrics ---------------------------------------------------------------------------------
 
 def wmape(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     """Weighted Mean Absolute Percentage Error — primary optimisation metric."""
@@ -76,7 +55,7 @@ def mae(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     return float(mean_absolute_error(y_true, y_pred))
 
 
-# ── TimeSeriesSplit CV ────────────────────────────────────────────────────────
+# ----TimeSeriesSplit CV ---------------------------------------------------------------------------------
 
 def cv_score(model, X: pd.DataFrame, y: pd.Series) -> Dict[str, float]:
     """
@@ -108,7 +87,7 @@ def cv_score(model, X: pd.DataFrame, y: pd.Series) -> Dict[str, float]:
     return result
 
 
-# ── Optuna tuning ─────────────────────────────────────────────────────────────
+# --- Optuna tuning ---------------------------------------------------------------------------------
 
 def _tune_xgboost(X: pd.DataFrame, y: pd.Series) -> dict:
     """Tune XGBoost hyperparameters using Optuna + TimeSeriesSplit."""
@@ -170,7 +149,7 @@ def _tune_lightgbm(X: pd.DataFrame, y: pd.Series) -> dict:
     return study.best_params
 
 
-# ── Base model training ───────────────────────────────────────────────────────
+# -- Base model training ---------------------------------------------------------------------------------
 
 def train_base_models(
     X_train: pd.DataFrame,
@@ -194,13 +173,13 @@ def train_base_models(
     to_tune = cfg["optuna"].get("models_to_tune", [])
     models  = {}
 
-    # ── Random Forest ──────────────────────────────────────────────────────
+    #----- Random Forest ---------------------------------------------------------------------------------
     with Timer("Random Forest", log):
         rf = RandomForestRegressor(**mcfg["random_forest"])
         rf.fit(X_train, y_train)
         models["random_forest"] = rf
 
-    # ── XGBoost ───────────────────────────────────────────────────────────
+    # --- XGBoost ---------------------------------------------------------------------------------
     with Timer("XGBoost", log):
         xgb_params = dict(mcfg["xgboost"])
         if tune and "xgboost" in to_tune:
@@ -212,7 +191,8 @@ def train_base_models(
         xgb_model.fit(X_train, y_train)
         models["xgboost"] = xgb_model
 
-    # ── LightGBM ──────────────────────────────────────────────────────────
+    # ---- LightGBM ---------------------------------------------------------------------------------
+
     with Timer("LightGBM", log):
         lgb_params = dict(mcfg["lightgbm"])
         if tune and "lightgbm" in to_tune:
@@ -292,7 +272,8 @@ def train_stacked_ensemble(
     return ensemble
 
 
-# ── Quantile models ───────────────────────────────────────────────────────────
+# ---- Quantile models ---------------------------------------------------------------------------------
+
 
 def train_quantile_models(
     X_train: pd.DataFrame,
@@ -316,7 +297,7 @@ def train_quantile_models(
     return qmodels
 
 
-# ── Evaluation ────────────────────────────────────────────────────────────────
+# --- Evaluation ---------------------------------------------------------------------------------
 
 def evaluate_all(
     base_models: Dict[str, Any],
@@ -400,7 +381,8 @@ def save_models(
     log.info("All models saved", extra={"directory": str(d), "files": saved})
 
 
-# ── Entry point ───────────────────────────────────────────────────────────────
+# --- Entry point ---------------------------------------------------------------------------------
+
 
 def run_training(data_path: str = None, tune: bool = True) -> dict:
     """
@@ -453,7 +435,8 @@ def run_training(data_path: str = None, tune: bool = True) -> dict:
     return results
 
 
-# ── Direct run ────────────────────────────────────────────────────────────────
+# ---- Direct run ---------------------------------------------------------------------------------
+
 
 if __name__ == "__main__":
     results = run_training(tune=True)

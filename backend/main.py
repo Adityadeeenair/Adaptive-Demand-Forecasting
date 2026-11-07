@@ -1,23 +1,4 @@
-"""
-backend/main.py
-================
-FastAPI application entry point.
 
-Wires together all routers and configures:
-    - CORS (so the React frontend can call the API)
-    - OpenAPI docs at /docs  (Swagger UI)
-    - ReDoc docs at  /redoc
-    - /health endpoint
-    - Startup event — pre-loads ML models into memory on boot
-
-To run the API:
-    cd <project_root>
-    uvicorn backend.main:app --reload --port 8000
-
-Then open:
-    http://localhost:8000/docs   ← interactive API docs
-    http://localhost:8000/health ← health check
-"""
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -37,7 +18,8 @@ from backend.services import session_store
 
 log = get_logger(__name__)
 
-# ── App definition ────────────────────────────────────────────────────────────
+# --- App definition ---------------------------------------------------------------------------------
+
 
 app = FastAPI(
     title       = "ForecastIQ API",
@@ -57,7 +39,8 @@ app = FastAPI(
     redoc_url   = "/redoc",
 )
 
-# ── CORS ──────────────────────────────────────────────────────────────────────
+# -- CORS ---------------------------------------------------------------------------------
+
 # Allow the React frontend (running on port 3000 in dev) to call the API.
 # In production, replace "*" with your actual frontend domain.
 
@@ -69,7 +52,8 @@ app.add_middleware(
     allow_headers     = ["*"],
 )
 
-# ── Routers ───────────────────────────────────────────────────────────────────
+# --- Routers ---------------------------------------------------------------------------------
+
 
 app.include_router(upload.router)
 app.include_router(forecast.router)
@@ -77,17 +61,12 @@ app.include_router(results.router)
 app.include_router(email_router.router)
 app.include_router(insights_router.router)
 
-# ── Startup event — pre-load models ──────────────────────────────────────────
+# -- Startup event — pre-load models ---------------------------------------------------------------------------------
+
 
 @app.on_event("startup")
 async def startup_event() -> None:
-    """
-    Pre-load ML models into memory when the server starts.
-
-    Without this, the FIRST forecast request would be slow because
-    joblib loads 8 pkl files from disk (~12MB total).
-    After startup loading, all subsequent requests are instant.
-    """
+    
     log.info("ForecastIQ API starting up...")
     try:
         from backend.pipeline.inference_pipeline import _store
@@ -102,7 +81,8 @@ async def startup_event() -> None:
         log.error(f"Model pre-load failed: {e}")
 
 
-# ── Health check ──────────────────────────────────────────────────────────────
+# -- Health check ---------------------------------------------------------------------------------
+
 
 @app.get(
     "/health",
@@ -111,10 +91,7 @@ async def startup_event() -> None:
     summary="API health check",
 )
 async def health_check() -> HealthResponse:
-    """
-    Returns API status, whether models are loaded, and current time.
-    Use this to verify the server is running before making other calls.
-    """
+   
     from backend.pipeline.inference_pipeline import _store
     stats = session_store.store_stats()
 
@@ -126,7 +103,8 @@ async def health_check() -> HealthResponse:
     )
 
 
-# ── Root redirect ─────────────────────────────────────────────────────────────
+# -- Root redirect ---------------------------------------------------------------------------------
+
 
 @app.get("/", include_in_schema=False)
 async def root():

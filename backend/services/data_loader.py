@@ -1,13 +1,3 @@
-"""
-backend/services/data_loader.py
-================================
-Loads the training CSV, validates schema, cleans data.
-Also provides:
-  - load_adapted()        — validates a DataFrame already processed by the adapter
-  - get_product_series()  — extracts one store/item time series for inference
-  - get_dataset_summary() — builds the JSON summary returned by /upload
-"""
-
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -21,7 +11,7 @@ log = get_logger(__name__)
 MAX_FILE_MB = 200
 
 
-# ── Custom exceptions ─────────────────────────────────────────────────────────
+# --- Custom exceptions ---------------------------------------------------------------------------------
 
 class DataLoadError(Exception):
     """File not found or cannot be read."""
@@ -33,7 +23,7 @@ class InsufficientDataError(Exception):
     """Dataset too small to be useful."""
 
 
-# ── Config helper ─────────────────────────────────────────────────────────────
+# --- Config helper ---------------------------------------------------------------------------------
 
 def _cfg() -> dict:
     p = Path(__file__).resolve().parents[1] / "config.yaml"
@@ -60,7 +50,7 @@ def _normalise_columns(df: pd.DataFrame, required: list):
     return df, missing
 
 
-# ── Date parsing ──────────────────────────────────────────────────────────────
+# -- Date parsing ---------------------------------------------------------------------------------
 
 def _parse_dates(series: pd.Series, configured_fmt: str) -> pd.Series:
     """Try configured format first, then common formats, then pandas inference."""
@@ -85,7 +75,7 @@ def _parse_dates(series: pd.Series, configured_fmt: str) -> pd.Series:
         )
 
 
-# ── Training data loader ──────────────────────────────────────────────────────
+# --- Training data loader ---------------------------------------------------------------------------------
 
 def load_data(path: Union[str, Path] = None) -> pd.DataFrame:
     """
@@ -180,18 +170,10 @@ def load_data(path: Union[str, Path] = None) -> pd.DataFrame:
     return df
 
 
-# ── Adapter output validator ──────────────────────────────────────────────────
+# -- Adapter output validator ---------------------------------------------------------------------------------
 
 def load_adapted(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Validate and finalise a DataFrame already processed by data_adapter.adapt().
-
-    This is a lightweight contract check — the adapter has already done all
-    the heavy lifting (column detection, date parsing, cleaning, gap filling).
-    This function just enforces types and minimum row count.
-
-    Called by upload.py after adapt(). Safe to call multiple times.
-    """
+    
     required = ["date", "store", "item", "sales", "product_id"]
     missing  = [c for c in required if c not in df.columns]
     if missing:
@@ -232,7 +214,7 @@ def load_adapted(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# ── Product series extractor ──────────────────────────────────────────────────
+# ---- Product series extractor ---------------------------------------------------------------------------------
 
 def get_product_series(df: pd.DataFrame, store, item) -> pd.Series:
     """
@@ -266,16 +248,10 @@ def get_product_series(df: pd.DataFrame, store, item) -> pd.Series:
     return series
 
 
-# ── Dataset summary ───────────────────────────────────────────────────────────
+# ---- Dataset summary ---------------------------------------------------------------------------------
 
 def get_dataset_summary(df: pd.DataFrame) -> dict:
-    """
-    Build the JSON summary returned by POST /upload.
-
-    Works with both load_data() output (config column names) and
-    load_adapted() output (standardised names: date/store/item/sales).
-    Detects which format is present automatically.
-    """
+  
     # The adapter always produces these exact column names
     date_col = "date"
     str_col  = "store"

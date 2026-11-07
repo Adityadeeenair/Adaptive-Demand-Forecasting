@@ -1,19 +1,3 @@
-"""
-backend/services/logger.py
-===========================
-Structured logger used by every module in the project.
-- Text format in dev  (readable, colored)
-- JSON format in prod (parseable by any log aggregator)
-
-Usage (in any file):
-    from backend.services.logger import get_logger, Timer
-    log = get_logger(__name__)
-    log.info("Step done", extra={"rows": 90000})
-
-    with Timer("Model training", log):
-        model.fit(X, y)
-    # → logs "Model training completed  elapsed_seconds=12.34"
-"""
 
 import logging
 import logging.handlers
@@ -23,7 +7,7 @@ import time
 from pathlib import Path
 
 
-# ── JSON formatter (production) ───────────────────────────────────────────────
+# --- JSON formatter (production) ---------------------------------------------------------------------------------
 
 class JsonFormatter(logging.Formatter):
     """Each log line is a single JSON object — easy to grep and parse."""
@@ -50,7 +34,7 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(payload, default=str)
 
 
-# ── Text formatter (development) ──────────────────────────────────────────────
+# --- Text formatter (development) ---------------------------------------------------------------------------------
 
 class TextFormatter(logging.Formatter):
     """
@@ -79,7 +63,7 @@ class TextFormatter(logging.Formatter):
         return line
 
 
-# ── Config reader (no circular imports) ──────────────────────────────────────
+# --- Config reader (no circular imports) ---------------------------------------------------------------------------------
 
 def _read_log_config() -> dict:
     """Reads only the logging section from config.yaml. Falls back to safe defaults."""
@@ -92,7 +76,7 @@ def _read_log_config() -> dict:
         return {"level": "INFO", "format": "text", "rotate_mb": 10, "backup_count": 3}
 
 
-# ── Root logger initialisation (runs once per process) ───────────────────────
+# --- Root logger initialisation (runs once per process) ---------------------------------------------------------------------------------
 
 _ready = False
 
@@ -136,7 +120,7 @@ def _init() -> None:
     _ready = True
 
 
-# ── Public API ────────────────────────────────────────────────────────────────
+# --- Public API ---------------------------------------------------------------------------------
 
 def get_logger(name: str) -> logging.Logger:
     """
@@ -158,7 +142,7 @@ def get_logger(name: str) -> logging.Logger:
     return logging.getLogger(f"forecastiq.{clean}")
 
 
-# ── Timer utility ─────────────────────────────────────────────────────────────
+# --- Timer utility ---------------------------------------------------------------------------------
 
 class Timer:
     """

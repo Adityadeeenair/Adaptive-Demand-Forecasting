@@ -1,57 +1,3 @@
-"""
-backend/pipeline/inference_pipeline.py
-========================================
-Loads saved models and generates forecasts.
-
-KEY FIXES IN THIS VERSION
-==========================
-
-FIX 1 — OSCILLATION AMPLIFICATION (ROOT CAUSE OF REPETITIVE WAVES)
-  Previous: lag_7, lag_14, lag_28 all read from `vals` — the raw prediction
-  buffer. When the model produces DOW-biased oscillations (Mon=+8, Tue=-8,
-  etc.), those raw values are fed back as lag_7 at the next weekly cycle,
-  compounding the oscillation. After 90 steps, amplitude ~= 3x initial.
-
-  Fix: Maintain a separate `smoothed_vals` buffer (EMA-updated at every step).
-  ALL lag lookups (lag_7, lag_14, lag_28, rolling means) use `smoothed_vals`.
-  Only `lag_1` reads `smoothed_val` directly (unchanged from before).
-  This breaks the DOW→lag_7→DOW feedback loop at the source.
-
-FIX 2 — TREND BLEND WEIGHT FORMULA TOO WEAK
-  Previous: blend_weight = min(trend_max_weight, abs(slope) * 20)
-  For a slope of 0.004 (typical real-world trend): weight = min(0.45, 0.08) = 0.08
-  Only 8% trend blending — effectively disabled despite "trending" label.
-
-  Fix: blend_weight = trend_max_weight * min(1.0, abs(slope) / trend_min_slope)
-  For slope=0.004, min_slope=0.002: weight = 0.65 * min(1.0, 2.0) = 0.65
-  Full trend blending when slope exceeds the threshold.
-
-FIX 3 — SMOOTH WINDOW TOO SMALL TO KILL WEEKLY OSCILLATION
-  Previous: window=3 reduces weekly-cycle std by ~20% — oscillation persists.
-  A 7-day centered moving average is a perfect low-pass filter for weekly
-  periodicity: it averages exactly one full cycle → std ≈ 0 for pure weekly signal.
-
-  Fix: trending → window=7, raw_frac=0.15 (mostly smoothed, trend preserved)
-       stable   → window=7, raw_frac=0.10
-       seasonal → window=3, raw_frac=0.50 (preserve genuine periodicity)
-       volatile → window=1, raw_frac=1.00 (untouched)
-
-FIX 4 — ADDITIVE TREND PROJECTION (PREVENTS EXPONENTIAL DRIFT)
-  Previous: trend_proj[i] = recent_level * (1 + slope * (i+1))
-  For a 90-day horizon with slope=0.005: multiplier reaches 1.45 — unrealistic.
-
-  Fix: Compute the absolute daily increment from the linear fit, project
-  additively: trend_proj[i] = recent_level + daily_increment * (i+1)
-  This matches what a linear trend actually means and won't explode.
-
-UNCHANGED:
-  - Model loading, feature list, store/item encoding
-  - EMA alpha per segment (lag_1 smoothing)
-  - Quantile bound computation
-  - All other pipeline files (feature_engineering, segmentation, ensemble, training)
-  - All routers, schemas, session store
-"""
-
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -79,10 +25,10 @@ def _models_dir() -> Path:
     return root / _cfg()["paths"]["saved_models"]
 
 
-# ── Model store singleton ─────────────────────────────────────────────────────
+# -----Model store singleton---------------------------------------------------------------------------------
 
 class _ModelStore:
-    """Loads all pkl files once on first request, reuses forever."""
+    """Loads all pkl files once on first request and reuses them forever."""
     _instance: Optional["_ModelStore"] = None
     _loaded: bool = False
 
@@ -140,7 +86,7 @@ class _ModelStore:
 _store = _ModelStore()
 
 
-# ── Encoding helper ───────────────────────────────────────────────────────────
+# ---- Encoding helper ---------------------------------------------------------------------------------
 
 def _encode(value, encoder: dict, col_name: str) -> int:
     """Map raw store/item value → training-time code. -1 for unseen values."""
@@ -151,23 +97,6 @@ def _encode(value, encoder: dict, col_name: str) -> int:
     return -1
 
 
-# ── Segment-aware inference parameters ───────────────────────────────────────
-#
-# ema_alpha:        Controls how fast the EMA lag_1 tracks new predictions.
-#                   1.0 = no EMA (raw last pred), 0.25 = very slow (stable)
-#
-# smooth_raw_frac:  Fraction of RAW predictions in the final blend.
-#                   1.0 = no smoothing, 0.10 = mostly 7-day moving average
-#
-# smooth_window:    Moving average window size.
-#                   7 = perfect cancellation of weekly DOW oscillation
-#                   3 = gentle, preserves some periodicity (seasonal)
-#                   1 = identity (volatile)
-#
-# trend_max_weight: Max weight toward the linear trend projection.
-#                   0.0 = disabled, 0.65 = strong trend following
-#
-# trend_min_slope:  Normalised slope threshold to activate trend blending.
 
 _SEGMENT_PARAMS: Dict[str, dict] = {
     "trending": {
@@ -203,8 +132,8 @@ _SEGMENT_PARAMS: Dict[str, dict] = {
         "trend_min_slope":  999.0,
     },
     "stable": {
-        "ema_alpha":        0.20,   # slower EMA — resists drifting away from history level
-        "smooth_raw_frac":  0.05,   # 95% 7-day MA → near-flat
+        "ema_alpha":        0.20,   # slower EMA - resists drifting away from history level
+        "smooth_raw_frac":  0.05,   # 95% 7-day MA -> near-flat
         "smooth_window":    7,
         "trend_max_weight": 0.00,
         "trend_min_slope":  999.0,
@@ -231,7 +160,7 @@ def _get_params(segment: str) -> dict:
     return _SEGMENT_PARAMS.get(segment, _SEGMENT_PARAMS["unknown"])
 
 
-# ── Trend helpers ─────────────────────────────────────────────────────────────
+# -------------------------- Trend helpers ---------------------------------------------------------------------------------
 
 def _estimate_trend(values: np.ndarray, window: int = 60) -> tuple:
     """
@@ -262,7 +191,7 @@ def _estimate_trend(values: np.ndarray, window: int = 60) -> tuple:
     return norm_slope, slope_abs, recent_level
 
 
-# ── Recursive feature builder ─────────────────────────────────────────────────
+# ---=---------- Recursive feature builder ---------------------------------------------------------------------------------
 
 def _build_recursive_features(
     history:          pd.Series,
@@ -318,12 +247,6 @@ def _build_recursive_features(
     for date in dates:
         row = {}
 
-        # Lag features.
-        # FIX: for volatile segment, lags >= 7 use history mean rather than
-        # predicted values. This breaks the feedback loop where the model's
-        # own DOW-biased outputs re-enter as lag_7 each week, causing the
-        # repeating structured pattern. History mean is the correct anchor
-        # for a product whose future is genuinely unpredictable.
         for lag in lag_wins:
             if lag == 1:
                 row["lag_1"] = smoothed_val
@@ -386,7 +309,7 @@ def _build_recursive_features(
     )
 
 
-# ── Segment-aware post-processing ────────────────────────────────────────────
+# ------------ Segment-aware post-processing ---------------------------------------------------------------------------------
 
 def _apply_trend_continuation(
     predictions:      np.ndarray,
@@ -467,7 +390,8 @@ def _apply_smoothing(
     return np.clip(blended, 0.0, None)
 
 
-# ── Per-product metric computation ───────────────────────────────────────────
+# ---- Per-product metric computation ---------------------------------------------------------------------------------
+
 
 def _compute_per_product_metrics(
     history:    pd.Series,
@@ -547,7 +471,7 @@ def _compute_per_product_metrics(
     }
 
 
-# ── Main inference function ───────────────────────────────────────────────────
+# ---- Main inference function ---------------------------------------------------------------------------------
 
 def run_inference(
     df:       pd.DataFrame,
@@ -610,7 +534,7 @@ def run_inference(
         )
 
         # Step 2: Segment-aware smoothing (FIX 3 — window=7 for trending/stable)
-        # Apply BEFORE trend continuation so the trend projects from a clean baseline
+        
         point_preds = _apply_smoothing(point_preds, params["smooth_raw_frac"], params["smooth_window"])
         rf_preds    = _apply_smoothing(rf_preds,    params["smooth_raw_frac"], params["smooth_window"])
         xgb_preds   = _apply_smoothing(xgb_preds,  params["smooth_raw_frac"], params["smooth_window"])
@@ -649,21 +573,13 @@ def run_inference(
             params["trend_max_weight"], params["trend_min_slope"]
         )
 
-        # Step 5a: Volatile — post-forecast level anchor on point_preds only.
-        # After the recursive loop, shift the ensemble forecast so its mean
-        # matches the recent 30-day history mean. This corrects training-set
-        # bias (model was trained on all products; this product's level may
-        # differ from the global mean). Only point_preds is shifted — the
-        # individual model arrays retain their original spread for comparison.
         if segment == "volatile":
             recent_mean = float(np.mean(history_arr[-30:]))
             shift = recent_mean - float(np.mean(point_preds))
             point_preds += shift
             np.clip(point_preds, 0.0, None, out=point_preds)
 
-        # Step 5b: Stable / intermittent — anchor all model arrays to history mean.
-        # These segments should be flat; any drift away from history level is
-        # model bias, not a real signal.
+       
         if params.get("anchor_to_mean", False):
             recent_mean = float(np.mean(history_arr[-30:]))
             for arr in [point_preds, rf_preds, xgb_preds, lgb_preds]:
@@ -675,9 +591,7 @@ def run_inference(
         lower_preds = np.minimum(lower_preds, point_preds)
         upper_preds = np.maximum(upper_preds, point_preds)
 
-        # Step 6: Per-product metrics — run a 30-step recursive forecast on
-        # history[:-30] and compare predictions to the actual last 30 days.
-        # This gives differentiated WMAPE/MAE per product, per model.
+        # Step 5: Per-product metrics — run a 30-step recursive forecast on
         model_metrics = _compute_per_product_metrics(
             history      = history,
             store_code   = store_code,
