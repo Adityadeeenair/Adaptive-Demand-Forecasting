@@ -109,6 +109,129 @@ function IngestionProgress() {
   )
 }
 
+function AmbientNetworkCanvas() {
+  const canvasRef = useRef(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    let animationId
+    let width = 0
+    let height = 0
+
+    const resize = () => {
+      if (!canvas) return
+      width = canvas.width = canvas.offsetWidth || window.innerWidth
+      height = canvas.height = canvas.offsetHeight || window.innerHeight
+    }
+    resize()
+    window.addEventListener('resize', resize)
+
+    // Ambient floating particles
+    const count = 45
+    const particles = Array.from({ length: count }, () => ({
+      x: Math.random() * (width || 800),
+      y: Math.random() * (height || 600),
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3,
+      r: Math.random() * 1.6 + 0.8,
+      alpha: Math.random() * 0.28 + 0.08,
+      amber: Math.random() > 0.35,
+    }))
+
+    let scanY = 0
+
+    const render = () => {
+      ctx.clearRect(0, 0, width, height)
+
+      // 1. Subtle background CAD coordinate grid
+      const gridSize = 56
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.018)'
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      for (let x = 0; x < width; x += gridSize) {
+        ctx.moveTo(x, 0)
+        ctx.lineTo(x, height)
+      }
+      for (let y = 0; y < height; y += gridSize) {
+        ctx.moveTo(0, y)
+        ctx.lineTo(width, y)
+      }
+      ctx.stroke()
+
+      // 2. Slow telemetry scan bar
+      scanY += 0.35
+      if (scanY > height) scanY = 0
+      const scanGrad = ctx.createLinearGradient(0, scanY - 35, 0, scanY)
+      scanGrad.addColorStop(0, 'rgba(245, 166, 35, 0)')
+      scanGrad.addColorStop(1, 'rgba(245, 166, 35, 0.045)')
+      ctx.fillStyle = scanGrad
+      ctx.fillRect(0, Math.max(0, scanY - 35), width, 35)
+
+      // 3. Connect close particles with faint data mesh lines
+      for (let i = 0; i < count; i++) {
+        for (let j = i + 1; j < count; j++) {
+          const dx = particles[i].x - particles[j].x
+          const dy = particles[i].y - particles[j].y
+          const dist = Math.sqrt(dx * dx + dy * dy)
+          if (dist < 100) {
+            const lineAlpha = (1 - dist / 100) * 0.08
+            ctx.strokeStyle = particles[i].amber
+              ? `rgba(245, 166, 35, ${lineAlpha})`
+              : `rgba(74, 158, 255, ${lineAlpha})`
+            ctx.lineWidth = 0.8
+            ctx.beginPath()
+            ctx.moveTo(particles[i].x, particles[i].y)
+            ctx.lineTo(particles[j].x, particles[j].y)
+            ctx.stroke()
+          }
+        }
+      }
+
+      // 4. Update and render particle positions
+      particles.forEach((p) => {
+        p.x += p.vx
+        p.y += p.vy
+        if (p.x < 0) p.x = width
+        if (p.x > width) p.x = 0
+        if (p.y < 0) p.y = height
+        if (p.y > height) p.y = 0
+
+        ctx.fillStyle = p.amber
+          ? `rgba(245, 166, 35, ${p.alpha})`
+          : `rgba(74, 158, 255, ${p.alpha})`
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
+        ctx.fill()
+      })
+
+      animationId = requestAnimationFrame(render)
+    }
+
+    render()
+
+    return () => {
+      cancelAnimationFrame(animationId)
+      window.removeEventListener('resize', resize)
+    }
+  }, [])
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: 'absolute',
+        inset: 0,
+        width: '100%',
+        height: '100%',
+        pointerEvents: 'none',
+        zIndex: 0,
+      }}
+    />
+  )
+}
+
 export default function Home({ onSessionCreated }) {
   const { status, summary, sessionId, error, upload, reset } = useUpload()
   const navigate = useNavigate()
@@ -132,19 +255,48 @@ export default function Home({ onSessionCreated }) {
       overflow: 'hidden',
       padding: '48px 24px 64px',
     }}>
-      {/* Subtle background glow */}
+      <style>{`
+        @keyframes auroraBreath {
+          0%, 100% {
+            transform: translateX(-50%) scale(1);
+            opacity: 0.14;
+          }
+          50% {
+            transform: translateX(-50%) scale(1.15);
+            opacity: 0.24;
+          }
+        }
+      `}</style>
+
+      {/* Living Ambient Canvas (CAD Grid + Floating Data Particles + Telemetry Scan) */}
+      <AmbientNetworkCanvas />
+
+      {/* Breathing Ambient Radial Aurora */}
       <div style={{
         position: 'absolute',
         top: 0,
         left: '50%',
-        transform: 'translateX(-50%)',
-        width: 800,
-        height: 400,
-        background: 'radial-gradient(ellipse 60% 40% at 50% 0%, rgba(245, 166, 35, 0.08) 0%, transparent 70%)',
+        width: 900,
+        height: 520,
+        background: 'radial-gradient(ellipse 65% 50% at 50% 15%, rgba(245, 166, 35, 0.16) 0%, rgba(74, 158, 255, 0.05) 50%, transparent 75%)',
         pointerEvents: 'none',
+        animation: 'auroraBreath 9s ease-in-out infinite',
+        zIndex: 0,
       }} />
 
-      <div style={{ maxWidth: 840, margin: '0 auto', position: 'relative' }}>
+      {/* Secondary soft cool glow at the bottom */}
+      <div style={{
+        position: 'absolute',
+        bottom: 0,
+        left: '20%',
+        width: 600,
+        height: 300,
+        background: 'radial-gradient(circle at 50% 100%, rgba(74, 158, 255, 0.04) 0%, transparent 60%)',
+        pointerEvents: 'none',
+        zIndex: 0,
+      }} />
+
+      <div style={{ maxWidth: 840, margin: '0 auto', position: 'relative', zIndex: 1 }}>
 
         {/* Section Header */}
         <div style={{ textAlign: 'center', marginBottom: 36 }}>
