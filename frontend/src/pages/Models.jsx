@@ -91,7 +91,9 @@ function EnsemblePipelineFlow({ activeModel, onSelectModel }) {
   return (
     <div style={{
       padding: '24px',
-      background: 'var(--bg-surface)',
+      background: 'rgba(20, 20, 24, 0.88)',
+      backdropFilter: 'blur(12px)',
+      WebkitBackdropFilter: 'blur(12px)',
       border: '1px solid var(--border)',
       borderRadius: 'var(--radius-lg)',
       marginBottom: 24,
@@ -271,7 +273,9 @@ function SuperpowerModelCard({ spec, metrics, isBest, isSelected, onClick }) {
       onClick={onClick}
       style={{
         padding: '22px 20px',
-        background: 'var(--bg-surface)',
+        background: 'rgba(20, 20, 24, 0.88)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
         border: `1px solid ${isSelected ? color : isBest ? 'var(--amber)' : 'var(--border)'}`,
         borderRadius: 'var(--radius-lg)',
         display: 'flex',
@@ -396,7 +400,9 @@ function ComparativeLeaderboard({ m, bestKey }) {
   return (
     <div style={{
       padding: '20px 24px',
-      background: 'var(--bg-surface)',
+      background: 'rgba(20, 20, 24, 0.88)',
+      backdropFilter: 'blur(12px)',
+      WebkitBackdropFilter: 'blur(12px)',
       border: '1px solid var(--border)',
       borderRadius: 'var(--radius-lg)',
       marginBottom: 24,
@@ -468,7 +474,9 @@ function CoverageGaugeCard({ pi }) {
   return (
     <div style={{
       padding: '18px 24px',
-      background: 'var(--bg-surface)',
+      background: 'rgba(20, 20, 24, 0.88)',
+      backdropFilter: 'blur(12px)',
+      WebkitBackdropFilter: 'blur(12px)',
       border: '1px solid var(--border)',
       borderRadius: 'var(--radius-lg)',
       marginBottom: 24,
@@ -511,7 +519,9 @@ function RetailSuitabilityMatrix() {
   return (
     <div style={{
       padding: '20px 24px',
-      background: 'var(--bg-surface)',
+      background: 'rgba(20, 20, 24, 0.88)',
+      backdropFilter: 'blur(12px)',
+      WebkitBackdropFilter: 'blur(12px)',
       border: '1px solid var(--border)',
       borderRadius: 'var(--radius-lg)',
       marginTop: 24,
@@ -585,19 +595,33 @@ export default function Models({ forecast }) {
       overflow: 'hidden',
       padding: '32px 32px 64px',
     }}>
+      <style>{`
+        @keyframes headerFlashPulse {
+          0%, 100% {
+            transform: translateX(-50%) scale(1);
+            opacity: 0.85;
+          }
+          50% {
+            transform: translateX(-50%) scale(1.15);
+            opacity: 1;
+          }
+        }
+      `}</style>
+
       {/* Living Hierarchical Decision Tree Geometric Canvas */}
       <AmbientDecisionTreeCanvas />
 
-      {/* Gentle ambient glow */}
+      {/* Pulsing Flash Ambient Aura on Header */}
       <div style={{
         position: 'absolute',
-        top: 40,
+        top: 20,
         left: '50%',
         transform: 'translateX(-50%)',
-        width: 1000,
-        height: 500,
-        background: 'radial-gradient(ellipse 65% 45% at 50% 15%, rgba(74, 158, 255, 0.06) 0%, rgba(245, 166, 35, 0.03) 50%, transparent 75%)',
+        width: 1100,
+        height: 520,
+        background: 'radial-gradient(ellipse 70% 45% at 50% 20%, rgba(74, 158, 255, 0.14) 0%, rgba(245, 166, 35, 0.08) 45%, transparent 75%)',
         pointerEvents: 'none',
+        animation: 'headerFlashPulse 8s ease-in-out infinite',
         zIndex: 0,
       }} />
 
