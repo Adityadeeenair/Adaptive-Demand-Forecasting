@@ -2,9 +2,9 @@ import { fmtNum, fmtPct } from '../utils/format'
 import { MODELS } from './ModelToggle'
 
 const MODEL_DESCRIPTIONS = {
-  random_forest: 'Bagging — baseline tree model',
-  xgboost:       'Gradient boosting — XGBoost',
-  lightgbm:      'Fast boosting — LightGBM',
+  random_forest: 'Bagging: baseline tree model',
+  xgboost:       'Gradient boosting: XGBoost',
+  lightgbm:      'Fast boosting: LightGBM',
   ensemble:      'NNLS weighted combination',
 }
 
@@ -54,7 +54,7 @@ export default function MetricsPanel({ forecast }) {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-              <div title="Weighted Mean Absolute Percentage Error (overall forecast error — lower is better)">
+              <div title="Weighted Mean Absolute Percentage Error (overall forecast error: lower is better)">
                 <p style={{ fontSize: 9, color: 'var(--text-tertiary)', fontFamily: 'var(--font-display)', letterSpacing: '0.06em', marginBottom: 2 }}>WMAPE ⓘ</p>
                 <p style={{ fontSize: 16, fontFamily: 'var(--font-display)', fontWeight: 700, color: isBest ? 'var(--amber)' : 'var(--text-primary)' }}>
                   {fmtPct(metrics.wmape)}

@@ -9,10 +9,10 @@ export const fmtShortDate = (str) => {
 }
 
 export const fmtNum = (n, decimals = 1) =>
-  n == null ? '—' : Number(n).toFixed(decimals)
+  n == null ? '-' : Number(n).toFixed(decimals)
 
 export const fmtPct = (n) =>
-  n == null ? '—' : `${(n * 100).toFixed(1)}%`
+  n == null ? '-' : `${(n * 100).toFixed(1)}%`
 
 export const segmentLabel = (s) => ({
   stable:            'Stable',
