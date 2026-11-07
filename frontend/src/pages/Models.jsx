@@ -16,7 +16,7 @@ const MODEL_DEFS = [
     type:  'Bagging Ensemble',
     desc:  'Trains hundreds of decision trees on random subsets of data and features, then averages predictions. Robust to outliers and noisy data. Serves as a stable baseline that rarely overfits.',
     bullets: ['Handles missing values', 'Robust to outliers', 'No scaling required'],
-    footer:  'Baseline tree model — highest stability, moderate accuracy.',
+    footer:  'Baseline tree model: highest stability, moderate accuracy.',
   },
   {
     key:   'xgboost',
@@ -41,7 +41,7 @@ const MODEL_DEFS = [
     label: 'NNLS Ensemble',
     color: '#f5a623',
     type:  'Non-Negative Least Squares',
-    desc:  'Learns optimal non-negative weights for combining all three base models using out-of-fold predictions. Weights sum to 1 and are always ≥ 0 — guaranteed at least as good as the best base model.',
+    desc:  'Learns optimal non-negative weights for combining all three base models using out-of-fold predictions. Weights sum to 1 and are always >= 0, guaranteed at least as good as the best base model.',
     bullets: ['Learned weights', 'No negative coefficients', 'Best generalisation'],
     footer:  'Default model. Combines strengths of all three.',
   },

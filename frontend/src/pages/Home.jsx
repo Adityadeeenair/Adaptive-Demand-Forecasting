@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import UploadZone from '../components/UploadZone'
 import { useUpload } from '../hooks/useUpload'

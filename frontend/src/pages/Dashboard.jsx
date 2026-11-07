@@ -120,7 +120,7 @@ function ForecastTakeaway({ forecast }) {
   if (pct >= 5) {
     tone = '#2ecc71'
     label = `Trending Up (+${pct.toFixed(1)}%)`
-    actionAdvice = `Expect volume expansion vs recent run-rate. Peak load projected on ${peakDate} (~${fmtNum(maxFc)} units). Place replenishment orders 2–3 days ahead to prevent stockouts.`
+    actionAdvice = `Expect volume expansion vs recent run-rate. Peak load projected on ${peakDate} (~${fmtNum(maxFc)} units). Place replenishment orders 2 to 3 days ahead to prevent stockouts.`
   } else if (pct <= -5) {
     tone = '#4a9eff'
     label = `Trending Down (${pct.toFixed(1)}%)`

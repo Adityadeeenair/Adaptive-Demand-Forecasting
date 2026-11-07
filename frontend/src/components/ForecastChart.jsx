@@ -146,7 +146,7 @@ function CustomTooltip({ active, payload, label, activeModel }) {
       )}
       {lower != null && upper != null && (
         <p style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 6, paddingTop: 6, borderTop: '1px solid var(--border)' }}>
-          80% safety corridor: <span style={{ color: AMBER, fontWeight: 600 }}>{fmtNum(lower)} – {fmtNum(upper)}</span> units
+          80% safety corridor: <span style={{ color: AMBER, fontWeight: 600 }}>{fmtNum(lower)} to {fmtNum(upper)}</span> units
         </p>
       )}
     </div>

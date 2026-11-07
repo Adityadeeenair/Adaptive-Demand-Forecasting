@@ -181,11 +181,11 @@ export default function CompareChart({ forecastA, forecastB }) {
 
       {/* Legend */}
       <div style={{ display: 'flex', gap: 16, padding: '10px 6px 0', flexWrap: 'wrap', borderTop: '1px solid var(--border)', marginTop: 10 }}>
-        <LegendDot color={COLOR_A} label={`${forecastA.product_id} — History`} />
-        <LegendDot color={COLOR_A} label={`${forecastA.product_id} — Forecast`} />
+        <LegendDot color={COLOR_A} label={`${forecastA.product_id} : History`} />
+        <LegendDot color={COLOR_A} label={`${forecastA.product_id} : Forecast`} />
         <div style={{ width: 1, background: 'var(--border)', alignSelf: 'stretch' }} />
-        <LegendDot color={COLOR_B} label={`${forecastB.product_id} — History`} />
-        <LegendDot color={COLOR_B} label={`${forecastB.product_id} — Forecast (dashed)`} />
+        <LegendDot color={COLOR_B} label={`${forecastB.product_id} : History`} />
+        <LegendDot color={COLOR_B} label={`${forecastB.product_id} : Forecast (dashed)`} />
       </div>
     </div>
   )
