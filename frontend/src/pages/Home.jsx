@@ -1,214 +1,458 @@
-import { useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import UploadZone from '../components/UploadZone'
 import { useUpload } from '../hooks/useUpload'
 
-const STEPS = [
-  'Reading CSV structure...',
-  'Detecting column types...',
-  'Validating date ranges...',
-  'Processing time series...',
-  'Building session...',
+const SCHEMA_SPECS = [
+  {
+    field: 'date',
+    status: 'Required',
+    alts: 'timestamp · day · week',
+    desc: 'Parsed to continuous daily sequence',
+  },
+  {
+    field: 'sales',
+    status: 'Required',
+    alts: 'demand · quantity · units',
+    desc: 'Target variable for ML forecast models',
+  },
+  {
+    field: 'store',
+    status: 'Optional',
+    alts: 'location · branch · outlet',
+    desc: 'Defaults to Store 1 if omitted',
+  },
+  {
+    field: 'item',
+    status: 'Optional',
+    alts: 'sku · product · code',
+    desc: 'Defaults to Item 1 if omitted',
+  },
 ]
 
-const WHAT_WORKS = [
-  { col: 'date',  alts: 'timestamp · day · week',     required: true  },
-  { col: 'sales', alts: 'demand · quantity · revenue', required: true  },
-  { col: 'store', alts: 'location · branch · region',  required: false },
-  { col: 'item',  alts: 'product · sku · category',    required: false },
+const PIPELINE_LOGS = [
+  'Reading raw CSV byte stream...',
+  'Universal adapter mapping column headers...',
+  'Validating daily time-series continuity...',
+  'Partitioning hierarchical store-item series...',
+  'Mounting session into high-speed memory...',
 ]
 
-const TAGS = ['Demand Segmentation', 'Random Forest', 'XGBoost', 'LightGBM', 'NNLS Ensemble', 'Quantile Intervals']
+function IngestionProgress() {
+  const [logIndex, setLogIndex] = useState(0)
+  const [progress, setProgress] = useState(15)
 
-function UploadingState() {
-  const textRef = useRef(null)
   useEffect(() => {
-    let i = 0
-    const id = setInterval(() => {
-      i = (i + 1) % STEPS.length
-      if (textRef.current) textRef.current.textContent = STEPS[i]
-    }, 900)
-    return () => clearInterval(id)
+    const timer = setInterval(() => {
+      setLogIndex((prev) => (prev + 1) % PIPELINE_LOGS.length)
+      setProgress((prev) => Math.min(prev + 18, 92))
+    }, 600)
+    return () => clearInterval(timer)
   }, [])
+
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14, padding: '10px 14px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-      <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
-        {[0,1,2].map(i => (
-          <span key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--amber)', animation: `pulse 1.2s ease-in-out ${i*0.2}s infinite` }} />
-        ))}
+    <div style={{
+      marginTop: 16,
+      padding: '20px 24px',
+      background: 'var(--bg-surface)',
+      border: '1px solid var(--border)',
+      borderRadius: 'var(--radius-lg)',
+      boxShadow: 'var(--shadow-md)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{
+            width: 8, height: 8,
+            borderRadius: '50%',
+            background: 'var(--amber)',
+            boxShadow: '0 0 10px var(--amber)',
+            animation: 'pulse 1s infinite',
+          }} />
+          <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--amber)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            Ingesting Time Series
+          </span>
+        </div>
+        <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
+          {progress}%
+        </span>
       </div>
-      <span ref={textRef} style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{STEPS[0]}</span>
+
+      {/* Progress Bar */}
+      <div style={{
+        height: 4,
+        background: 'var(--bg-elevated)',
+        borderRadius: 2,
+        overflow: 'hidden',
+        marginBottom: 12,
+      }}>
+        <div style={{
+          width: `${progress}%`,
+          height: '100%',
+          background: 'linear-gradient(90deg, var(--amber-dim), var(--amber))',
+          borderRadius: 2,
+          transition: 'width 0.4s ease',
+        }} />
+      </div>
+
+      <p style={{
+        fontSize: 12,
+        fontFamily: 'var(--font-mono)',
+        color: 'var(--text-secondary)',
+        margin: 0,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+      }}>
+        <span style={{ color: 'var(--amber)' }}>&gt;</span> {PIPELINE_LOGS[logIndex]}
+      </p>
     </div>
   )
 }
 
 export default function Home({ onSessionCreated }) {
-  const { status, summary, sessionId, error, upload } = useUpload()
+  const { status, summary, sessionId, error, upload, reset } = useUpload()
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (status === 'success' && sessionId) onSessionCreated(sessionId, summary)
+    if (status === 'success' && sessionId) {
+      onSessionCreated(sessionId, summary)
+    }
   }, [status, sessionId])
 
-  const handleFile = async (file) => { try { await upload(file) } catch (_) {} }
+  const handleFile = async (file) => {
+    try {
+      await upload(file)
+    } catch (_) {}
+  }
 
   return (
     <div style={{
       minHeight: 'calc(100vh - 56px)',
       position: 'relative',
       overflow: 'hidden',
+      padding: '48px 24px 64px',
     }}>
-
-      {/* Background depth — amber glow behind the upload side */}
+      {/* Subtle background glow */}
       <div style={{
-        position: 'absolute', inset: 0, pointerEvents: 'none',
-        background: 'radial-gradient(circle at 72% 45%, rgba(245,166,35,0.07) 0%, transparent 55%)',
+        position: 'absolute',
+        top: 0,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: 800,
+        height: 400,
+        background: 'radial-gradient(ellipse 60% 40% at 50% 0%, rgba(245, 166, 35, 0.08) 0%, transparent 70%)',
+        pointerEvents: 'none',
       }} />
-      {/* Secondary cool glow on the left */}
-      <div style={{
-        position: 'absolute', inset: 0, pointerEvents: 'none',
-        background: 'radial-gradient(circle at 20% 60%, rgba(74,158,255,0.04) 0%, transparent 50%)',
-      }} />
 
-      <div style={{
-        display: 'flex',
-        alignItems: 'flex-start',    /* asymmetric — not centred */
-        padding: '72px 56px 56px',
-        maxWidth: 1120, margin: '0 auto',
-        gap: 80,
-        position: 'relative',
-      }}>
+      <div style={{ maxWidth: 840, margin: '0 auto', position: 'relative' }}>
 
-        {/* ── Left: context ─────────────────────────────────────────────── */}
-        <div style={{
-          flex: '0 0 380px',
-          paddingTop: 16,             /* slight downward offset = asymmetry */
-          animation: 'fadeUp 0.5s ease both',
-        }}>
-
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '4px 12px', background: 'var(--amber-glow)', border: '1px solid var(--amber-dim)', borderRadius: 'var(--radius-sm)', marginBottom: 28 }}>
+        {/* Section Header */}
+        <div style={{ textAlign: 'center', marginBottom: 36 }}>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '3px 10px',
+            background: 'var(--amber-glow)',
+            border: '1px solid var(--amber-dim)',
+            borderRadius: 'var(--radius-sm)',
+            marginBottom: 12,
+          }}>
             <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--amber)' }} />
-            <span style={{ fontSize: 10, fontFamily: 'var(--font-display)', color: 'var(--amber)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Demand Intelligence</span>
+            <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--amber)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              Data Pipeline : Stage 01
+            </span>
           </div>
 
-          <h1 style={{ fontSize: 38, fontFamily: 'var(--font-heading)', fontWeight: 700, lineHeight: 1.12, marginBottom: 18, letterSpacing: '-0.02em' }}>
-            Adaptive Demand<br />
-            <span style={{ color: 'var(--amber)' }}>Forecasting System</span>
+          <h1 style={{
+            fontSize: 'clamp(28px, 4vw, 42px)',
+            fontWeight: 700,
+            fontFamily: 'var(--font-display)',
+            color: 'var(--text-primary)',
+            margin: '0 0 10px',
+            letterSpacing: '-0.02em',
+          }}>
+            Ingest Retail Sales Data
           </h1>
 
-          <p style={{ fontSize: 14, color: 'var(--text-tertiary)', lineHeight: 1.8, marginBottom: 52, maxWidth: 340, opacity: 0.75 }}>
-            Upload retail sales data. The system segments products by demand behaviour,
-            trains ensemble ML models, and generates forecasts with confidence intervals.
+          <p style={{
+            fontSize: 14,
+            color: 'var(--text-secondary)',
+            maxWidth: 540,
+            margin: '0 auto',
+            lineHeight: 1.6,
+          }}>
+            Upload any standard retail sales CSV. The universal schema adapter maps columns,
+            validates timestamp continuity, and builds an in-memory session.
           </p>
+        </div>
 
-          {/* Column guide — visually secondary */}
-          <div style={{ marginBottom: 44 }}>
-            <p style={{ fontSize: 10, fontFamily: 'var(--font-display)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 14, opacity: 0.7 }}>
-              Accepted column names
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {WHAT_WORKS.map(({ col, alts, required }) => (
-                <div key={col} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <code style={{
-                    fontSize: 11, fontFamily: 'var(--font-mono)',
-                    color: required ? 'var(--amber)' : 'var(--text-secondary)',
+        {/* Upload Terminal */}
+        {status !== 'success' ? (
+          <div>
+            <UploadZone onFile={handleFile} disabled={status === 'uploading'} />
+
+            {status === 'uploading' && <IngestionProgress />}
+
+            {status === 'error' && (
+              <div style={{
+                marginTop: 16,
+                padding: '14px 18px',
+                background: 'rgba(231, 76, 60, 0.08)',
+                border: '1px solid rgba(231, 76, 60, 0.3)',
+                borderRadius: 'var(--radius-md)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+              }}>
+                <span style={{ color: 'var(--red)', fontWeight: 700 }}>✕</span>
+                <p style={{ fontSize: 13, color: 'var(--red)', margin: 0 }}>{error}</p>
+              </div>
+            )}
+
+            {/* Quick Sample Dataset Reference */}
+            {status === 'idle' && (
+              <div style={{
+                marginTop: 20,
+                textAlign: 'center',
+                fontSize: 12,
+                color: 'var(--text-tertiary)',
+              }}>
+                <span>Need a ready-to-test file? </span>
+                <a
+                  href="/sample_dataset.csv"
+                  download="sample_dataset.csv"
+                  style={{
+                    color: 'var(--amber)',
+                    textDecoration: 'underline',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Download sample_dataset.csv
+                </a>
+                <span> (10 products · 180 days)</span>
+              </div>
+            )}
+
+            {/* Schema Normalization Grid */}
+            <div style={{
+              marginTop: 40,
+              paddingTop: 32,
+              borderTop: '1px solid var(--border)',
+            }}>
+              <p style={{
+                fontSize: 10,
+                fontFamily: 'var(--font-mono)',
+                color: 'var(--text-tertiary)',
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                marginBottom: 16,
+                textAlign: 'center',
+              }}>
+                Universal Schema Adapter : Accepted Columns
+              </p>
+
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                gap: 12,
+              }}>
+                {SCHEMA_SPECS.map(({ field, status: reqStatus, alts, desc }) => (
+                  <div
+                    key={field}
+                    style={{
+                      padding: '14px 16px',
+                      background: 'var(--bg-surface)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 'var(--radius-md)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 6,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <code style={{
+                        fontSize: 12,
+                        fontFamily: 'var(--font-mono)',
+                        color: reqStatus === 'Required' ? 'var(--amber)' : 'var(--text-primary)',
+                        fontWeight: 700,
+                      }}>
+                        {field}
+                      </code>
+                      <span style={{
+                        fontSize: 9,
+                        fontFamily: 'var(--font-mono)',
+                        padding: '1px 6px',
+                        borderRadius: 3,
+                        color: reqStatus === 'Required' ? 'var(--amber)' : 'var(--text-tertiary)',
+                        background: reqStatus === 'Required' ? 'var(--amber-glow)' : 'var(--bg-elevated)',
+                        border: `1px solid ${reqStatus === 'Required' ? 'var(--amber-dim)' : 'var(--border)'}`,
+                        textTransform: 'uppercase',
+                      }}>
+                        {reqStatus}
+                      </span>
+                    </div>
+
+                    <span style={{ fontSize: 11, color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>
+                      {alts}
+                    </span>
+
+                    <span style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.4, marginTop: 2 }}>
+                      {desc}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Post-Upload Success Ingestion Report */
+          <div style={{
+            padding: '28px',
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--amber)',
+            borderRadius: 'var(--radius-lg)',
+            boxShadow: 'var(--shadow-amber)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{
+                  width: 8, height: 8,
+                  borderRadius: '50%',
+                  background: 'var(--green)',
+                  boxShadow: '0 0 10px var(--green)',
+                  flexShrink: 0,
+                }} />
+                <div>
+                  <h3 style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                    Dataset Mounted to Session Store
+                  </h3>
+                  <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
+                    Session ID: {sessionId?.slice(0, 8)}...
+                  </span>
+                </div>
+              </div>
+
+              <span style={{
+                fontSize: 11,
+                fontFamily: 'var(--font-mono)',
+                color: 'var(--text-tertiary)',
+                padding: '4px 10px',
+                background: 'var(--bg-elevated)',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border)',
+              }}>
+                {summary?.date_min} to {summary?.date_max}
+              </span>
+            </div>
+
+            {/* Ingested Metrics Grid */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+              gap: 12,
+              marginBottom: 24,
+            }}>
+              {[
+                { label: 'Total Rows', val: summary?.rows?.toLocaleString() },
+                { label: 'Products', val: summary?.products },
+                { label: 'Stores', val: summary?.stores },
+                { label: 'SKU Items', val: summary?.items },
+              ].map(({ label, val }) => (
+                <div
+                  key={label}
+                  style={{
+                    padding: '14px 16px',
                     background: 'var(--bg-elevated)',
-                    border: `1px solid ${required ? 'var(--amber-dim)' : 'var(--border)'}`,
-                    padding: '2px 8px', borderRadius: 3,
-                    minWidth: 44, textAlign: 'center', flexShrink: 0,
-                  }}>{col}</code>
-                  <span style={{ fontSize: 11, color: 'var(--text-tertiary)', opacity: 0.75 }}>{alts}</span>
-                  {!required && (
-                    <span style={{ marginLeft: 'auto', fontSize: 9, fontFamily: 'var(--font-display)', color: 'var(--text-tertiary)', border: '1px solid var(--border)', padding: '1px 5px', borderRadius: 2, flexShrink: 0, opacity: 0.6 }}>optional</span>
-                  )}
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-md)',
+                  }}
+                >
+                  <p style={{
+                    fontSize: 9,
+                    fontFamily: 'var(--font-mono)',
+                    color: 'var(--text-tertiary)',
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    margin: '0 0 4px',
+                  }}>
+                    {label}
+                  </p>
+                  <p style={{
+                    fontSize: 22,
+                    fontFamily: 'var(--font-mono)',
+                    fontWeight: 700,
+                    color: 'var(--text-primary)',
+                    margin: 0,
+                  }}>
+                    {val}
+                  </p>
                 </div>
               ))}
             </div>
-            <p style={{ marginTop: 10, fontSize: 11, color: 'var(--text-tertiary)', opacity: 0.6, lineHeight: 1.5 }}>
-              Column names detected automatically — exact match not required.
-            </p>
-          </div>
 
-          {/* Tags */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {TAGS.map(tag => (
-              <span key={tag} style={{ padding: '3px 9px', fontSize: 10, fontFamily: 'var(--font-display)', color: 'var(--text-tertiary)', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', letterSpacing: '0.03em', opacity: 0.7 }}>
-                {tag}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* ── Right: upload — the main action ───────────────────────────── */}
-        <div style={{
-          flex: 1,
-          paddingTop: 0,              /* sits higher than left = asymmetry */
-          animation: 'fadeUp 0.5s ease 0.1s both',
-        }}>
-
-          {status !== 'success' ? (
-            <>
-              <UploadZone onFile={handleFile} disabled={status === 'uploading'} />
-
-              {status === 'uploading' && <UploadingState />}
-
-              {status === 'error' && (
-                <div style={{ marginTop: 12, padding: '11px 15px', background: 'rgba(231,76,60,0.08)', border: '1px solid rgba(231,76,60,0.3)', borderRadius: 'var(--radius-md)' }}>
-                  <p style={{ fontSize: 13, color: 'var(--red)' }}>{error}</p>
-                </div>
-              )}
-
-              {status === 'idle' && (
-                <p style={{ marginTop: 16, fontSize: 12, color: 'var(--text-tertiary)', textAlign: 'center', opacity: 0.75 }}>
-                  No dataset?{' '}
-                  <a href="/sample_dataset.csv" download="sample_dataset.csv"
-                    style={{ color: 'var(--amber)', textDecoration: 'underline', cursor: 'pointer' }}>
-                    Download sample CSV
-                  </a>
-                  {' '}— 10 products, 180 days, mixed segments.
-                </p>
-              )}
-            </>
-          ) : (
-            <div style={{ animation: 'fadeUp 0.4s ease both' }}>
-              <div style={{ padding: '22px 26px', marginBottom: 14, background: 'var(--bg-surface)', border: '1px solid var(--amber)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-amber)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--green)', boxShadow: '0 0 8px var(--green)', flexShrink: 0 }} />
-                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Dataset loaded successfully</span>
-                  <span style={{ marginLeft: 'auto', fontSize: 11, fontFamily: 'var(--font-display)', color: 'var(--text-tertiary)' }}>
-                    {summary?.date_min} → {summary?.date_max}
-                  </span>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-                  {[
-                    { label: 'ROWS',     value: summary?.rows?.toLocaleString() },
-                    { label: 'PRODUCTS', value: summary?.products },
-                    { label: 'STORES',   value: summary?.stores },
-                    { label: 'ITEMS',    value: summary?.items },
-                  ].map(({ label, value }) => (
-                    <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '14px 16px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-                      <span style={{ fontSize: 9, fontFamily: 'var(--font-display)', color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{label}</span>
-                      <span style={{ fontSize: 22, fontFamily: 'var(--font-heading)', fontWeight: 700, color: 'var(--text-primary)' }}>{value}</span>
-                    </div>
-                  ))}
-                </div>
-                {summary?.thin_products > 0 && (
-                  <p style={{ marginTop: 12, fontSize: 11, color: 'var(--text-tertiary)', padding: '8px 12px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)' }}>
-                    ⚠ {summary.thin_products} product(s) have limited history and may be excluded from forecasting.
-                  </p>
-                )}
+            {/* Thin products notice */}
+            {summary?.thin_products > 0 && (
+              <div style={{
+                padding: '10px 14px',
+                background: 'rgba(245, 166, 35, 0.08)',
+                border: '1px solid rgba(245, 166, 35, 0.25)',
+                borderRadius: 'var(--radius-md)',
+                marginBottom: 20,
+                fontSize: 12,
+                color: 'var(--text-secondary)',
+              }}>
+                Notice: {summary.thin_products} product(s) have fewer than 30 observations and were isolated.
               </div>
+            )}
+
+            {/* CTAs */}
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               <button
                 onClick={() => navigate('/dashboard')}
-                style={{ width: '100%', padding: '14px', borderRadius: 'var(--radius-md)', fontSize: 14, fontWeight: 600, color: 'var(--bg-base)', background: 'var(--amber)', border: 'none', cursor: 'pointer', letterSpacing: '0.02em', transition: 'var(--transition)' }}
-                onMouseEnter={e => e.target.style.background = 'var(--amber-dim)'}
-                onMouseLeave={e => e.target.style.background = 'var(--amber)'}
+                style={{
+                  flex: 1,
+                  minWidth: 200,
+                  padding: '14px 24px',
+                  borderRadius: 'var(--radius-md)',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: 'var(--bg-base)',
+                  background: 'var(--amber)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  letterSpacing: '0.02em',
+                  transition: 'var(--transition)',
+                  boxShadow: '0 0 24px rgba(245, 166, 35, 0.25)',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--amber-dim)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--amber)' }}
               >
-                Open Dashboard →
+                Launch Forecast Dashboard →
+              </button>
+
+              <button
+                onClick={reset}
+                style={{
+                  padding: '14px 20px',
+                  borderRadius: 'var(--radius-md)',
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: 'var(--text-secondary)',
+                  background: 'transparent',
+                  border: '1px solid var(--border)',
+                  cursor: 'pointer',
+                  transition: 'var(--transition)',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-light)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-secondary)' }}
+              >
+                Upload Different File
               </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   )
