@@ -3,6 +3,7 @@ from datetime import datetime
 from pathlib import Path
 from fastapi import APIRouter, HTTPException, status
 import joblib
+import pandas as pd
 
 from backend.models.schemas import (
     ForecastRequest, ForecastResponse, ProductsResponse,
@@ -248,4 +249,61 @@ async def get_insights(session_id: str):
         .to_dict("records")
     )
 
-    return {**summary, "segment_counts": seg_counts, "top_products": top10}
+    # Day of week retail rhythm (Mon to Sun averages)
+    day_short = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    day_full  = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    weekday_pattern = []
+    try:
+        dt_col = pd.to_datetime(df["date"])
+        weekday_avg = df.groupby(dt_col.dt.dayofweek)["sales"].mean()
+        weekday_pattern = [
+            {
+                "day": day_short[i],
+                "day_full": day_full[i],
+                "avg_sales": round(float(weekday_avg.get(i, 0.0)), 1),
+            }
+            for i in range(7)
+        ]
+    except Exception as e:
+        log.warning(f"Insights: could not compute weekday pattern: {e}")
+
+    # Daily time series for all catalog products
+    product_timelines = {}
+    try:
+        for pid, group in df.groupby("product_id"):
+            grp_sorted = group.sort_values("date")
+            product_timelines[str(pid)] = {
+                "dates": [str(d.date()) if hasattr(d, "date") else str(d)[:10] for d in grp_sorted["date"]],
+                "sales": [round(float(s), 1) for s in grp_sorted["sales"]],
+            }
+    except Exception as e:
+        log.warning(f"Insights: could not compute product timelines: {e}")
+
+    # Product diagnostic metadata (volatility, seasonality, trend)
+    products_meta = []
+    try:
+        for _, row in seg_df.iterrows():
+            pid = str(row["product_id"])
+            store, item = _parse_pid(pid)
+            products_meta.append({
+                "product_id": pid,
+                "store": store,
+                "item": item,
+                "mean_sales": round(float(row.get("mean_sales", 0.0)), 1),
+                "final_segment": str(row.get("final_segment", "stable")),
+                "volatility_cv": round(float(row.get("volatility_cv", 0.0)), 3),
+                "seasonality_corr": round(float(row.get("seasonality_corr", 0.0)), 3),
+                "trend": round(float(row.get("trend", 0.0)), 4),
+                "zero_ratio": round(float(row.get("zero_ratio", 0.0)), 3),
+            })
+    except Exception as e:
+        log.warning(f"Insights: could not compute products meta: {e}")
+
+    return {
+        **summary,
+        "segment_counts": seg_counts,
+        "top_products": top10,
+        "weekday_pattern": weekday_pattern,
+        "product_timelines": product_timelines,
+        "products_meta": products_meta,
+    }
