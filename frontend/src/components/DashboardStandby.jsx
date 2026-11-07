@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import StatusBadge from './StatusBadge'
 
-// ── Synthetic Waveform Oscilloscope Radar ──────────────────────────────────────
+// ── Synthetic Waveform Oscilloscope Radar (Spacious, Unboxed) ──────────────────
 export function StandbyWaveformRadar() {
   const canvasRef = useRef(null)
 
@@ -16,79 +15,81 @@ export function StandbyWaveformRadar() {
 
     const resize = () => {
       if (!canvas) return
-      width = canvas.width = canvas.offsetWidth || 640
-      height = canvas.height = canvas.offsetHeight || 150
+      width = canvas.width = canvas.offsetWidth || 720
+      height = canvas.height = canvas.offsetHeight || 220
     }
     resize()
     window.addEventListener('resize', resize)
 
     // Precompute a synthetic 7-day cyclical retail demand series for Store 2 / Item 2
-    const totalDays = 60
-    const historyDays = 42
+    const totalDays = 64
+    const historyDays = 44
     const baseline = Array.from({ length: totalDays }, (_, i) => {
       const dayOfWeek = i % 7
       // Weekend peak on Friday/Saturday
       const weekendBump = (dayOfWeek === 5 || dayOfWeek === 6) ? 22 : 0
-      const trend = Math.sin(i * 0.12) * 8
-      const noise = Math.sin(i * 2.3) * 3
+      const trend = Math.sin(i * 0.11) * 9
+      const noise = Math.sin(i * 2.1) * 3.5
       return 58 + weekendBump + trend + noise
     })
 
     const render = () => {
-      t += 0.02
+      t += 0.018
       ctx.clearRect(0, 0, width, height)
 
-      const splitX = width * 0.65
-      const minY = 30
-      const maxY = 110
+      const splitX = width * 0.64
       const scaleY = (val) => {
-        const norm = (val - 35) / (105 - 35)
-        return height - 25 - norm * (height - 50)
+        const norm = (val - 30) / (105 - 30)
+        return height - 32 - norm * (height - 68)
       }
 
-      // 1. Subtle horizontal datum grids
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)'
-      ctx.lineWidth = 1
-      ;[45, 65, 85].forEach((val) => {
+      // 1. Subtle horizontal datum grids & Y-axis labels
+      ctx.font = '9px monospace'
+      ;[90, 70, 50, 30].forEach((val) => {
         const y = scaleY(val)
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.035)'
+        ctx.lineWidth = 1
         ctx.beginPath()
-        ctx.moveTo(10, y)
-        ctx.lineTo(width - 10, y)
+        ctx.moveTo(38, y)
+        ctx.lineTo(width - 16, y)
         ctx.stroke()
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.25)'
+        ctx.fillText(`${val}u`, 8, y + 3)
       })
 
       // 2. Dual-zone division line (History vs Forecast)
       ctx.strokeStyle = 'rgba(245, 166, 35, 0.35)'
       ctx.setLineDash([4, 4])
       ctx.beginPath()
-      ctx.moveTo(splitX, 10)
-      ctx.lineTo(splitX, height - 15)
+      ctx.moveTo(splitX, 16)
+      ctx.lineTo(splitX, height - 20)
       ctx.stroke()
       ctx.setLineDash([])
 
-      // 3. Zone Labels
-      ctx.font = '9px monospace'
-      ctx.fillStyle = 'rgba(74, 158, 255, 0.65)'
-      ctx.fillText('OBSERVED HISTORY (119D)', 16, 20)
+      // 3. Zone Header Labels (Direct on canvas, crisp & clean)
+      ctx.font = '10px monospace'
+      ctx.fillStyle = 'rgba(74, 158, 255, 0.7)'
+      ctx.fillText('OBSERVED HISTORY (119D)', 42, 24)
 
-      ctx.fillStyle = 'rgba(245, 166, 35, 0.75)'
-      ctx.fillText('PROJECTED ENVELOPE (80% CORRIDOR)', splitX + 14, 20)
+      ctx.fillStyle = 'rgba(245, 166, 35, 0.85)'
+      ctx.fillText('PROJECTED ENVELOPE (80% CORRIDOR)', splitX + 16, 24)
 
-      // 4. Draw History Curve (Cyan line with subtle dots)
+      // 4. Draw History Curve (Cyan line with data nodes)
       ctx.beginPath()
       ctx.strokeStyle = '#4a9eff'
       ctx.lineWidth = 1.8
       for (let i = 0; i <= historyDays; i++) {
-        const x = 16 + (i / historyDays) * (splitX - 24)
+        const x = 42 + (i / historyDays) * (splitX - 52)
         const y = scaleY(baseline[i])
         if (i === 0) ctx.moveTo(x, y)
         else ctx.lineTo(x, y)
       }
       ctx.stroke()
 
-      // History points
+      // History data nodes
       for (let i = 0; i <= historyDays; i += 3) {
-        const x = 16 + (i / historyDays) * (splitX - 24)
+        const x = 42 + (i / historyDays) * (splitX - 52)
         const y = scaleY(baseline[i])
         ctx.fillStyle = '#4a9eff'
         ctx.beginPath()
@@ -97,17 +98,17 @@ export function StandbyWaveformRadar() {
       }
 
       // 5. Draw Forecast Confidence Band & Trajectory
-      const lastHistX = splitX - 8
+      const lastHistX = splitX - 10
       const lastHistY = scaleY(baseline[historyDays])
 
       const forecastPoints = []
       const remainingDays = totalDays - historyDays
       for (let j = 0; j <= remainingDays; j++) {
         const frac = j / remainingDays
-        const x = lastHistX + frac * (width - lastHistX - 16)
+        const x = lastHistX + frac * (width - lastHistX - 24)
         const baseVal = baseline[historyDays + j] || 64
         // Breathing confidence envelope
-        const spread = (10 + frac * 16) * (1 + Math.sin(t + frac * 2) * 0.08)
+        const spread = (12 + frac * 18) * (1 + Math.sin(t + frac * 2) * 0.08)
         forecastPoints.push({
           x,
           mid: scaleY(baseVal),
@@ -117,7 +118,7 @@ export function StandbyWaveformRadar() {
       }
 
       // 80% Confidence Band Gradient Fill
-      ctx.fillStyle = 'rgba(245, 166, 35, 0.12)'
+      ctx.fillStyle = 'rgba(245, 166, 35, 0.10)'
       ctx.beginPath()
       ctx.moveTo(forecastPoints[0].x, forecastPoints[0].upper)
       for (let k = 1; k < forecastPoints.length; k++) {
@@ -131,7 +132,7 @@ export function StandbyWaveformRadar() {
 
       // Confidence Band upper/lower dashed strokes
       ctx.strokeStyle = 'rgba(245, 166, 35, 0.3)'
-      ctx.setLineDash([2, 3])
+      ctx.setLineDash([2, 4])
       ctx.beginPath()
       forecastPoints.forEach((p, idx) => {
         if (idx === 0) ctx.moveTo(p.x, p.upper)
@@ -158,11 +159,11 @@ export function StandbyWaveformRadar() {
       ctx.stroke()
 
       // Scanning reticle cursor moving across forecast horizon
-      const scanFrac = (Math.sin(t * 1.5) + 1) / 2
+      const scanFrac = (Math.sin(t * 1.4) + 1) / 2
       const scanIdx = Math.floor(scanFrac * (forecastPoints.length - 1))
       const targetPoint = forecastPoints[scanIdx]
       if (targetPoint) {
-        ctx.strokeStyle = 'rgba(245, 166, 35, 0.7)'
+        ctx.strokeStyle = 'rgba(245, 166, 35, 0.75)'
         ctx.lineWidth = 1
         ctx.beginPath()
         ctx.arc(targetPoint.x, targetPoint.mid, 4 + Math.sin(t * 4) * 1.5, 0, Math.PI * 2)
@@ -188,12 +189,8 @@ export function StandbyWaveformRadar() {
   return (
     <div style={{
       width: '100%',
-      height: 150,
-      background: 'rgba(0, 0, 0, 0.25)',
-      borderRadius: 'var(--radius-md)',
-      border: '1px solid var(--border)',
+      height: 220,
       position: 'relative',
-      overflow: 'hidden',
     }}>
       <canvas
         ref={canvasRef}
@@ -207,40 +204,35 @@ export function StandbyWaveformRadar() {
   )
 }
 
-// ── Standby Forecast Deck (Center Panel) ──────────────────────────────────────
-export function ForecastStandbyDeck({ products = [], onSelectAndRun }) {
-  // Select top representative products across different demand segments
-  const sampleProducts = products.slice(0, 3)
-
+// ── Standby Forecast Deck (Center Panel: Clean, Spacious, Unboxed) ────────────
+export function ForecastStandbyDeck() {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-      {/* Header status bar */}
+      {/* Spacious Header with zero nested boxes */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
         gap: 12,
-        padding: '14px 18px',
-        background: 'var(--bg-surface)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-md)',
+        padding: '6px 4px 12px',
+        borderBottom: '1px solid var(--border)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{
-            width: 8, height: 8,
+            width: 7, height: 7,
             borderRadius: '50%',
             background: 'var(--amber)',
-            boxShadow: '0 0 10px var(--amber)',
+            boxShadow: '0 0 8px var(--amber)',
             animation: 'pulse 1.4s infinite',
           }} />
           <div>
             <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-body)' }}>
-              Inference Engine Primed
+              Awaiting Target Selection
             </h3>
             <p style={{ fontSize: 11, color: 'var(--text-tertiary)', margin: '2px 0 0', fontFamily: 'var(--font-mono)' }}>
-              Awaiting target SKU selection to compute ensemble trajectory
+              Select any SKU from the catalog on the left to compute demand trajectory
             </p>
           </div>
         </div>
@@ -249,138 +241,55 @@ export function ForecastStandbyDeck({ products = [], onSelectAndRun }) {
           display: 'inline-flex',
           alignItems: 'center',
           gap: 6,
-          padding: '4px 10px',
-          background: 'var(--bg-elevated)',
-          border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-sm)',
           fontSize: 10,
           fontFamily: 'var(--font-mono)',
           color: 'var(--text-secondary)',
+          background: 'var(--bg-elevated)',
+          padding: '4px 10px',
+          borderRadius: 'var(--radius-sm)',
+          border: '1px solid var(--border)',
         }}>
           <span>HORIZON: 30D DEFAULT</span>
           <span style={{ color: 'var(--border)' }}>·</span>
-          <span style={{ color: 'var(--amber)' }}>4 MODELS READY</span>
+          <span style={{ color: 'var(--amber)' }}>NNLS ENSEMBLE PRIMED</span>
         </div>
       </div>
 
-      {/* Synthetic Waveform Oscilloscope preview */}
+      {/* Hero Waveform Oscilloscope (Airy, Unboxed) */}
       <StandbyWaveformRadar />
 
-      {/* Quick Launch Recommendations */}
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-          <span style={{ fontSize: 10, fontFamily: 'var(--font-display)', color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-            Quick Run Recommendations
-          </span>
-          <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-tertiary)' }}>
-            1-Click Multi-Model Forecast
-          </span>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
-          {sampleProducts.map((p) => (
-            <div
-              key={p.product_id}
-              style={{
-                padding: '12px 14px',
-                background: 'var(--bg-elevated)',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-md)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 8,
-                transition: 'border-color 0.2s ease, transform 0.15s ease',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'var(--amber-dim)'
-                e.currentTarget.style.transform = 'translateY(-1px)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--border)'
-                e.currentTarget.style.transform = 'translateY(0)'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>
-                  {p.product_id}
-                </span>
-                <StatusBadge segment={p.segment} size="sm" />
-              </div>
-
-              <div style={{ fontSize: 11, color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>
-                Store {p.store} · Item {p.item}
-              </div>
-
-              <button
-                onClick={() => onSelectAndRun && onSelectAndRun(p.store, p.item, 30)}
-                style={{
-                  marginTop: 4,
-                  padding: '7px 10px',
-                  background: 'var(--amber-glow)',
-                  border: '1px solid var(--amber-dim)',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: 11,
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 600,
-                  color: 'var(--amber)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6,
-                  transition: 'all 0.15s ease',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'var(--amber)'
-                  e.currentTarget.style.color = '#000'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'var(--amber-glow)'
-                  e.currentTarget.style.color = 'var(--amber)'
-                }}
-              >
-                <span>Launch 30d Forecast</span>
-                <span>→</span>
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Model Readiness Matrix */}
+      {/* Minimal Monospace Pipeline Indicator Strip */}
       <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: 8,
-        paddingTop: 8,
+        paddingTop: 12,
         borderTop: '1px solid var(--border)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: 12,
       }}>
-        {[
-          { name: 'NNLS Ensemble', status: 'Primed', color: 'var(--amber)', note: 'Meta-Learner' },
-          { name: 'LightGBM', status: 'Primed', color: '#2ecc71', note: 'Fast Boosting' },
-          { name: 'XGBoost', status: 'Primed', color: '#9b59b6', note: 'Optuna CV' },
-          { name: 'Random Forest', status: 'Primed', color: '#4a9eff', note: 'Bagging Trees' },
-        ].map((m) => (
-          <div
-            key={m.name}
-            style={{
-              padding: '10px 12px',
-              background: 'rgba(255, 255, 255, 0.015)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-sm)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: m.color }} />
-              <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-primary)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            Pipeline
+          </span>
+          {[
+            { name: 'NNLS Ensemble', color: 'var(--amber)' },
+            { name: 'LightGBM', color: '#2ecc71' },
+            { name: 'XGBoost', color: '#9b59b6' },
+            { name: 'Random Forest', color: '#4a9eff' },
+          ].map((m) => (
+            <div key={m.name} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 5, height: 5, borderRadius: '50%', background: m.color }} />
+              <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
                 {m.name}
               </span>
             </div>
-            <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--text-tertiary)' }}>
-              {m.note} · {m.status}
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
+
+        <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--green)', letterSpacing: '0.04em' }}>
+          ESTIMATORS READY
+        </span>
       </div>
 
     </div>
@@ -410,15 +319,12 @@ export function InferenceTelemetryDeck() {
 
   return (
     <div style={{
-      height: 380,
+      height: 320,
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
       padding: '24px 32px',
-      background: 'rgba(0, 0, 0, 0.2)',
-      borderRadius: 'var(--radius-md)',
-      border: '1px solid var(--border)',
       position: 'relative',
     }}>
       <div style={{
@@ -486,91 +392,83 @@ export function InferenceTelemetryDeck() {
   )
 }
 
-// ── Standby Metrics Deck (Right Panel) ─────────────────────────────────────────
+// ── Standby Metrics Deck (Right Panel: Single Continuous Spec Sheet) ──────────
 export function MetricsStandbyDeck() {
+  const specs = [
+    {
+      title: 'PRIMARY METRIC',
+      metric: 'WMAPE',
+      color: 'var(--amber)',
+      desc: 'Weighted Mean Absolute Percentage Error. Retail volume-weighted accuracy benchmark.',
+    },
+    {
+      title: 'DAILY VARIANCE',
+      metric: 'MAE',
+      color: '#4a9eff',
+      desc: 'Mean Absolute Error. Direct unit deviation per day against actual observations.',
+    },
+    {
+      title: 'VALIDATION PROTOCOL',
+      metric: 'TimeSeriesSplit (5-Fold)',
+      color: 'var(--text-primary)',
+      desc: 'Expanding window folds with strict temporal masking to eliminate lookahead bias.',
+    },
+    {
+      title: 'UNCERTAINTY CORRIDOR',
+      metric: '80% Empirical Coverage',
+      color: 'var(--green)',
+      desc: 'Quantile loss bounds at q0.10 and q0.90 for inventory safety stock buffers.',
+    },
+    {
+      title: 'META-LEARNER',
+      metric: 'NNLS Optimization',
+      color: 'var(--text-secondary)',
+      desc: 'Non-negative least squares out-of-fold weights. Constraints: w_i >= 0, Sum(w_i) = 1.0.',
+    },
+  ]
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div>
-        <span style={{ fontSize: 10, fontFamily: 'var(--font-display)', color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-          Evaluation Blueprint
-        </span>
-      </div>
-
-      {/* Target Metric Specifications */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{
-        padding: '12px 14px',
-        background: 'var(--bg-elevated)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-md)',
-      }}>
-        <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--amber)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>
-          Primary Retail Metric
-        </div>
-        <div style={{ fontSize: 14, fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>
-          WMAPE
-        </div>
-        <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-          Weighted Mean Absolute Percentage Error. Scales error proportionally to sales volume.
-        </div>
-      </div>
-
-      <div style={{
-        padding: '12px 14px',
-        background: 'var(--bg-elevated)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-md)',
-      }}>
-        <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: '#4a9eff', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>
-          Secondary Metric
-        </div>
-        <div style={{ fontSize: 14, fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>
-          MAE
-        </div>
-        <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-          Mean Absolute Error. Direct unit deviation per day against actual observations.
-        </div>
-      </div>
-
-      {/* Validation Methodology */}
-      <div style={{
-        padding: '12px 14px',
-        background: 'var(--bg-surface)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-md)',
-      }}>
-        <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>
-          Validation Protocol
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: 'var(--text-tertiary)' }}>Cross-Val:</span>
-            <span>TimeSeriesSplit (5-Fold)</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: 'var(--text-tertiary)' }}>Corridor:</span>
-            <span style={{ color: '#2ecc71' }}>80% Coverage (q0.10, q0.90)</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: 'var(--text-tertiary)' }}>Lookahead:</span>
-            <span>Zero Leakage Mask</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Solver Info */}
-      <div style={{
-        padding: '10px 12px',
-        background: 'rgba(245, 166, 35, 0.05)',
-        border: '1px solid var(--amber-dim)',
-        borderRadius: 'var(--radius-md)',
         fontSize: 10,
         fontFamily: 'var(--font-mono)',
-        color: 'var(--text-secondary)',
-        lineHeight: 1.5,
+        color: 'var(--text-tertiary)',
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+        paddingBottom: 8,
+        borderBottom: '1px solid var(--border)',
       }}>
-        <span style={{ color: 'var(--amber)', fontWeight: 600 }}>NNLS Solver:</span> Combines model predictions with non-negative constraints ensuring bounded ensemble risk.
+        Validation Blueprint
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {specs.map((item, idx) => (
+          <div
+            key={item.title}
+            style={{
+              paddingBottom: idx === specs.length - 1 ? 0 : 12,
+              borderBottom: idx === specs.length - 1 ? 'none' : '1px solid rgba(255, 255, 255, 0.04)',
+            }}
+          >
+            <div style={{
+              display: 'flex',
+              alignItems: 'baseline',
+              justifyContent: 'space-between',
+              marginBottom: 3,
+            }}>
+              <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--text-tertiary)', letterSpacing: '0.06em' }}>
+                {item.title}
+              </span>
+              <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', fontWeight: 700, color: item.color }}>
+                {item.metric}
+              </span>
+            </div>
+            <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.45 }}>
+              {item.desc}
+            </p>
+          </div>
+        ))}
       </div>
     </div>
   )
 }
-

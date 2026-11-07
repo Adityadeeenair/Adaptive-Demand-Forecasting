@@ -99,25 +99,6 @@ export default function Layout({ children, apiStatus }) {
       </nav>
 
       <main style={{ flex: 1 }}>{children}</main>
-
-      <footer style={{
-        padding: '20px 32px',
-        borderTop: '1px solid var(--border)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: 8,
-      }}>
-        <span style={{ fontSize: 11, fontFamily: 'var(--font-display)', color: 'var(--text-tertiary)', letterSpacing: '0.06em' }}>
-          ADF · Adaptive Demand Forecasting System
-        </span>
-        <div style={{ display: 'flex', gap: 16 }}>
-          {['RF', 'XGB', 'LGB', 'NNLS Ensemble', 'Quantile Intervals'].map(t => (
-            <span key={t} style={{ fontSize: 10, fontFamily: 'var(--font-display)', color: 'var(--text-tertiary)', letterSpacing: '0.06em' }}>{t}</span>
-          ))}
-        </div>
-      </footer>
     </div>
   )
 }
