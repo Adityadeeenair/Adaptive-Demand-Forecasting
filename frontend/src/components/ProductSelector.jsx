@@ -21,10 +21,30 @@ const selectStyle = {
   transition: 'var(--transition)',
 }
 
-export default function ProductSelector({ products, onForecast, loading }) {
-  const [store, setStore]     = useState('')
-  const [item, setItem]       = useState('')
+export default function ProductSelector({
+  products,
+  onForecast,
+  loading,
+  selectedStore,
+  selectedItem,
+  onStoreChange,
+  onItemChange,
+}) {
+  const [store, setStore]     = useState(selectedStore || '')
+  const [item, setItem]       = useState(selectedItem || '')
   const [horizon, setHorizon] = useState(30)
+
+  useEffect(() => {
+    if (selectedStore !== undefined && selectedStore !== null) {
+      setStore(String(selectedStore))
+    }
+  }, [selectedStore])
+
+  useEffect(() => {
+    if (selectedItem !== undefined && selectedItem !== null) {
+      setItem(String(selectedItem))
+    }
+  }, [selectedItem])
 
   const stores = [...new Set(products.map((p) => String(p.store)))].sort((a, b) => {
     const na = Number(a), nb = Number(b)
@@ -34,11 +54,20 @@ export default function ProductSelector({ products, onForecast, loading }) {
                          .map((p) => String(p.item))
   const selected = products.find((p) => String(p.store) === String(store) && String(p.item) === String(item))
 
-  useEffect(() => { setItem('') }, [store])
+  const handleStoreChange = (val) => {
+    setStore(val)
+    setItem('')
+    if (onStoreChange) onStoreChange(val)
+    if (onItemChange) onItemChange('')
+  }
+
+  const handleItemChange = (val) => {
+    setItem(val)
+    if (onItemChange) onItemChange(val)
+  }
 
   const handleSubmit = () => {
     if (!store || !item) return
-    // Pass raw string values — backend accepts int or string store/item IDs
     onForecast(store, item, horizon)
   }
 
@@ -53,7 +82,7 @@ export default function ProductSelector({ products, onForecast, loading }) {
 
       <div>
         {label('Store')}
-        <select value={store} onChange={(e) => setStore(e.target.value)} style={selectStyle}>
+        <select value={store} onChange={(e) => handleStoreChange(e.target.value)} style={selectStyle}>
           <option value="">Select store...</option>
           {stores.map((s) => <option key={s} value={s}>Store {s}</option>)}
         </select>
@@ -61,7 +90,7 @@ export default function ProductSelector({ products, onForecast, loading }) {
 
       <div>
         {label('Item')}
-        <select value={item} onChange={(e) => setItem(e.target.value)} style={selectStyle} disabled={!store}>
+        <select value={item} onChange={(e) => handleItemChange(e.target.value)} style={selectStyle} disabled={!store}>
           <option value="">Select item...</option>
           {items.map((i) => <option key={i} value={i}>Item {i}</option>)}
         </select>

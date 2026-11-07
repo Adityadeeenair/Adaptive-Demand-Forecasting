@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ProductSelector from '../components/ProductSelector'
 import ForecastChart from '../components/ForecastChart'
@@ -6,6 +6,12 @@ import CompareChart from '../components/CompareChart'
 import MetricsPanel from '../components/MetricsPanel'
 import HistoryPanel from '../components/HistoryPanel'
 import StatusBadge from '../components/StatusBadge'
+import AmbientHarmonicsCanvas from '../components/AmbientHarmonicsCanvas'
+import {
+  ForecastStandbyDeck,
+  InferenceTelemetryDeck,
+  MetricsStandbyDeck,
+} from '../components/DashboardStandby'
 import { useForecast } from '../hooks/useForecast'
 import { fmtNum, fmtShortDate } from '../utils/format'
 import { api } from '../api/client'
@@ -226,6 +232,8 @@ export default function Dashboard({ sessionId, summary, onForecastUpdate }) {
   const [compareForecast, setCompareForecast] = useState(null)
   const [compareLoading,  setCompareLoading]  = useState(false)
   const [horizon,         setHorizon]         = useState(30)
+  const [selectedStore,   setSelectedStore]   = useState('')
+  const [selectedItem,    setSelectedItem]    = useState('')
 
   useEffect(() => {
     if (!sessionId) { navigate('/'); return }
@@ -241,10 +249,23 @@ export default function Dashboard({ sessionId, summary, onForecastUpdate }) {
 
   const handleForecast = async (store, item, h) => {
     setHorizon(h)
+    setSelectedStore(String(store))
+    setSelectedItem(String(item))
     try {
       const data = await runForecast(store, item, h)
       if (data && onForecastUpdate) onForecastUpdate(data)
     } catch (_) {}
+  }
+
+  const handleSelectProduct = (store, item) => {
+    setSelectedStore(String(store))
+    setSelectedItem(String(item))
+  }
+
+  const handleSelectAndRun = (store, item, h = 30) => {
+    setSelectedStore(String(store))
+    setSelectedItem(String(item))
+    handleForecast(store, item, h)
   }
 
   const handleCompare = async (store, item, h) => {
@@ -267,177 +288,302 @@ export default function Dashboard({ sessionId, summary, onForecastUpdate }) {
   const showCompareChart = compareMode && compareForecast && forecast
 
   return (
-    <div style={{ padding: '24px 32px', maxWidth: 1400, margin: '0 auto' }}>
+    <div style={{
+      position: 'relative',
+      minHeight: 'calc(100vh - 56px)',
+      overflow: 'hidden',
+      padding: '24px 32px 48px',
+    }}>
+      {/* Living Harmonic Waveform Canvas (Mathematical Time-Series Flow) */}
+      <AmbientHarmonicsCanvas />
 
-      {/* Top bar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24, animation: 'fadeUp 0.4s ease both' }}>
-        <div>
-          <h2 style={{ fontSize: 18, fontWeight: 600, fontFamily: 'var(--font-body)', color: 'var(--text-primary)', marginBottom: 2 }}>Forecast Dashboard</h2>
-          {summary && (
-            <p style={{ fontSize: 12, color: 'var(--text-tertiary)', fontFamily: 'var(--font-display)' }}>
-              {summary.products} products · {summary.stores} stores · {summary.date_min} → {summary.date_max}
-            </p>
-          )}
-        </div>
+      {/* Gentle center radial aura */}
+      <div style={{
+        position: 'absolute',
+        top: 60,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: 960,
+        height: 480,
+        background: 'radial-gradient(ellipse 65% 45% at 50% 20%, rgba(245, 166, 35, 0.08) 0%, rgba(74, 158, 255, 0.03) 50%, transparent 75%)',
+        pointerEvents: 'none',
+        zIndex: 0,
+      }} />
 
-        {error && (
-          <div style={{ marginLeft: 'auto', padding: '8px 14px', background: 'rgba(231,76,60,0.08)', border: '1px solid rgba(231,76,60,0.3)', borderRadius: 'var(--radius-md)', fontSize: 12, color: 'var(--red)', maxWidth: 360 }}>{error}</div>
-        )}
+      <div style={{ maxWidth: 1400, margin: '0 auto', position: 'relative', zIndex: 1 }}>
 
-        {forecast && (
-          <div style={{ marginLeft: error ? 0 : 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
-            {/* Compare toggle */}
-            <ActionButton
-              icon="⇄"
-              label={compareMode ? 'Single View' : 'Compare Products'}
-              onClick={() => { setCompareMode(v => !v); if (compareMode) setCompareForecast(null) }}
-              active={compareMode}
-            />
-            <ActionButton icon="↓" label="Export CSV" onClick={() => downloadCSV(forecast)} />
-            <ActionButton icon="✉" label="Email Report" onClick={() => setShowEmail(true)} amber />
-          </div>
-        )}
-      </div>
-
-      {/* Main grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr 260px', gap: 16, alignItems: 'start', animation: 'fadeUp 0.4s ease 0.1s both' }}>
-
-        {/* Left — controls */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={PANEL_STYLE}>
-            <div style={PANEL_HEADER}>
-              <span style={PANEL_TITLE}>Configure</span>
-              <span style={{ fontSize: 11, fontFamily: 'var(--font-display)', color: 'var(--text-tertiary)' }}>{products.length} products</span>
-            </div>
-            <div style={{ padding: 16 }}>
-              <ProductSelector products={products} onForecast={handleForecast} loading={loading} />
-              {/* Compare selector — shown only when compare mode is on and main forecast exists */}
-              {compareMode && forecast && (
-                <CompareSelector
-                  products={products}
-                  sessionId={sessionId}
-                  horizon={horizon}
-                  onCompare={handleCompare}
-                  onClear={handleClearCompare}
-                  loading={compareLoading}
-                  compareForecast={compareForecast}
-                />
-              )}
-            </div>
-          </div>
-
-          <div style={PANEL_STYLE}>
-            <div style={PANEL_HEADER}>
-              <div style={{ display: 'flex', gap: 12 }}>
-                {['products', 'history'].map(tab => (
-                  <button key={tab} onClick={() => setActiveTab(tab)} style={{ background: 'none', fontSize: 11, fontFamily: 'var(--font-display)', color: activeTab === tab ? 'var(--amber)' : 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase', borderBottom: activeTab === tab ? '1px solid var(--amber)' : '1px solid transparent', paddingBottom: 2, transition: 'var(--transition)' }}>{tab}</button>
-                ))}
+        {/* Top bar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24, animation: 'fadeUp 0.4s ease both' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+              <h2 style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-body)', color: 'var(--text-primary)', margin: 0 }}>
+                Forecast Dashboard
+              </h2>
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                padding: '2px 8px',
+                background: 'var(--amber-glow)',
+                border: '1px solid var(--amber-dim)',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: 10,
+                fontFamily: 'var(--font-mono)',
+                color: 'var(--amber)',
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+              }}>
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--amber)' }} />
+                <span>INFERENCE DESK</span>
               </div>
             </div>
-            <div style={{ padding: 12, maxHeight: 340, overflowY: 'auto' }}>
-              {activeTab === 'products' ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  {products.map(p => (
-                    <div key={p.product_id} style={{ padding: '8px 10px', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
-                      <span style={{ fontFamily: 'var(--font-display)', fontSize: 11, color: 'var(--text-secondary)' }}>{p.product_id}</span>
-                      <StatusBadge segment={p.segment} size="sm" />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <HistoryPanel history={history} onSelect={selectFromHistory} onDelete={removeFromHistory} activeForecastId={forecast?.forecast_id} />
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Centre — chart */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-          {forecast && !showCompareChart && (
-            <div style={{ padding: '14px 20px', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-              <div>
-                <p style={{ fontSize: 10, fontFamily: 'var(--font-display)', color: 'var(--text-tertiary)', letterSpacing: '0.08em', marginBottom: 4 }}>PRODUCT</p>
-                <p style={{ fontSize: 20, fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--text-primary)' }}>{forecast.product_id}</p>
-              </div>
-              <div style={{ width: 1, height: 32, background: 'var(--border)', flexShrink: 0 }} />
-              <div>
-                <p style={{ fontSize: 10, fontFamily: 'var(--font-display)', color: 'var(--text-tertiary)', letterSpacing: '0.08em', marginBottom: 4 }}>AVG FORECAST</p>
-                <p style={{ fontSize: 20, fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--amber)' }}>
-                  {fmtNum(forecast.point_forecast.reduce((a, b) => a + b, 0) / forecast.point_forecast.length)}{' '}
-                  <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>units/day</span>
-                </p>
-              </div>
-              <div style={{ width: 1, height: 32, background: 'var(--border)', flexShrink: 0 }} />
-              <StatusBadge segment={forecast.segment} />
-              <div style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-tertiary)', fontFamily: 'var(--font-display)' }}>
-                {fmtShortDate(forecast.forecast_dates[0])} → {fmtShortDate(forecast.forecast_dates.at(-1))}
-              </div>
-            </div>
-          )}
-
-          {forecast && !showCompareChart && (
-            <ForecastTakeaway forecast={forecast} />
-          )}
-
-          {showCompareChart && (
-            <div style={{ padding: '14px 20px', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#4a9eff' }} />
-                <span style={{ fontSize: 13, fontFamily: 'var(--font-display)', fontWeight: 600, color: 'var(--text-primary)' }}>{forecast.product_id}</span>
-                <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>avg {fmtNum(forecast.point_forecast.reduce((a,b)=>a+b,0)/forecast.point_forecast.length)}</span>
-              </div>
-              <span style={{ color: 'var(--border)' }}>vs</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f5a623' }} />
-                <span style={{ fontSize: 13, fontFamily: 'var(--font-display)', fontWeight: 600, color: 'var(--text-primary)' }}>{compareForecast.product_id}</span>
-                <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>avg {fmtNum(compareForecast.point_forecast.reduce((a,b)=>a+b,0)/compareForecast.point_forecast.length)}</span>
-              </div>
-              <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-tertiary)', fontFamily: 'var(--font-display)' }}>
-                {forecast.horizon}d horizon
-              </span>
-            </div>
-          )}
-
-          <div style={PANEL_STYLE}>
-            <div style={PANEL_HEADER}>
-              <span style={PANEL_TITLE}>
-                {showCompareChart ? 'Product Comparison' : forecast ? `${forecast.horizon}d Demand Forecast` : 'Demand Forecast'}
-              </span>
-            </div>
-            <div style={{ padding: '16px 12px 12px' }}>
-              {(loading || compareLoading) ? (
-                <div style={{ height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--amber)', animation: 'pulse 0.8s infinite' }} />
-                  <span style={{ fontSize: 12, fontFamily: 'var(--font-display)', color: 'var(--text-secondary)' }}>RUNNING MODEL...</span>
-                </div>
-              ) : showCompareChart ? (
-                <CompareChart forecastA={forecast} forecastB={compareForecast} />
-              ) : (
-                <ForecastChart forecast={forecast} />
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Right — metrics */}
-        <div style={PANEL_STYLE}>
-          <div style={PANEL_HEADER}><span style={PANEL_TITLE}>Model Metrics</span></div>
-          <div style={{ padding: 16 }}>
-            {forecast ? (
-              <MetricsPanel forecast={forecast} />
-            ) : (
-              <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: 11, fontFamily: 'var(--font-display)' }}>
-                RUN A FORECAST<br />TO SEE METRICS
-              </div>
+            {summary && (
+              <p style={{ fontSize: 12, color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)', margin: 0 }}>
+                {summary.products} products · {summary.stores} stores · {summary.date_min} to {summary.date_max}
+              </p>
             )}
           </div>
-        </div>
-      </div>
 
-      {showEmail && forecast && (
-        <EmailModal sessionId={sessionId} forecast={forecast} onClose={() => setShowEmail(false)} />
-      )}
+          {error && (
+            <div style={{ marginLeft: 'auto', padding: '8px 14px', background: 'rgba(231,76,60,0.08)', border: '1px solid rgba(231,76,60,0.3)', borderRadius: 'var(--radius-md)', fontSize: 12, color: 'var(--red)', maxWidth: 360 }}>{error}</div>
+          )}
+
+          {forecast && (
+            <div style={{ marginLeft: error ? 0 : 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
+              {/* Compare toggle */}
+              <ActionButton
+                icon="⇄"
+                label={compareMode ? 'Single View' : 'Compare Products'}
+                onClick={() => { setCompareMode(v => !v); if (compareMode) setCompareForecast(null) }}
+                active={compareMode}
+              />
+              <ActionButton icon="↓" label="Export CSV" onClick={() => downloadCSV(forecast)} />
+              <ActionButton icon="✉" label="Email Report" onClick={() => setShowEmail(true)} amber />
+            </div>
+          )}
+        </div>
+
+        {/* Main grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: '290px 1fr 270px', gap: 18, alignItems: 'start', animation: 'fadeUp 0.4s ease 0.1s both' }}>
+
+          {/* Left column: controls */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={PANEL_STYLE}>
+              <div style={PANEL_HEADER}>
+                <span style={PANEL_TITLE}>Configure</span>
+                <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-tertiary)' }}>{products.length} products</span>
+              </div>
+              <div style={{ padding: 16 }}>
+                <ProductSelector
+                  products={products}
+                  onForecast={handleForecast}
+                  loading={loading}
+                  selectedStore={selectedStore}
+                  selectedItem={selectedItem}
+                  onStoreChange={(s) => setSelectedStore(s)}
+                  onItemChange={(i) => setSelectedItem(i)}
+                />
+                {/* Compare selector: shown only when compare mode is on and main forecast exists */}
+                {compareMode && forecast && (
+                  <CompareSelector
+                    products={products}
+                    sessionId={sessionId}
+                    horizon={horizon}
+                    onCompare={handleCompare}
+                    onClear={handleClearCompare}
+                    loading={compareLoading}
+                    compareForecast={compareForecast}
+                  />
+                )}
+              </div>
+            </div>
+
+            <div style={PANEL_STYLE}>
+              <div style={PANEL_HEADER}>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  {['products', 'history'].map(tab => (
+                    <button key={tab} onClick={() => setActiveTab(tab)} style={{ background: 'none', fontSize: 11, fontFamily: 'var(--font-display)', color: activeTab === tab ? 'var(--amber)' : 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase', borderBottom: activeTab === tab ? '1px solid var(--amber)' : '1px solid transparent', paddingBottom: 2, transition: 'var(--transition)' }}>{tab}</button>
+                  ))}
+                </div>
+              </div>
+              <div style={{ padding: 12, maxHeight: 360, overflowY: 'auto' }}>
+                {activeTab === 'products' ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {products.map(p => {
+                      const isCurrent = forecast?.product_id === p.product_id
+                      const isSelected = String(selectedStore) === String(p.store) && String(selectedItem) === String(p.item)
+                      return (
+                        <div
+                          key={p.product_id}
+                          onClick={() => handleSelectProduct(p.store, p.item)}
+                          style={{
+                            padding: '9px 12px',
+                            borderRadius: 'var(--radius-sm)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 8,
+                            background: isCurrent ? 'var(--amber-glow)' : isSelected ? 'var(--bg-elevated)' : 'var(--bg-surface)',
+                            border: `1px solid ${isCurrent ? 'var(--amber)' : isSelected ? 'var(--amber-dim)' : 'var(--border)'}`,
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{
+                              width: 6,
+                              height: 6,
+                              borderRadius: '50%',
+                              background: isCurrent ? 'var(--amber)' : 'var(--text-tertiary)',
+                            }} />
+                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: isCurrent ? 700 : 500, color: isCurrent ? 'var(--amber)' : 'var(--text-primary)' }}>
+                              {p.product_id}
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <StatusBadge segment={p.segment} size="sm" />
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleSelectAndRun(p.store, p.item, horizon)
+                              }}
+                              title="Run forecast for this SKU"
+                              style={{
+                                padding: '3px 7px',
+                                background: 'transparent',
+                                border: '1px solid var(--border)',
+                                borderRadius: 4,
+                                fontSize: 10,
+                                fontFamily: 'var(--font-mono)',
+                                color: 'var(--text-secondary)',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = 'var(--amber)'
+                                e.currentTarget.style.color = '#000'
+                                e.currentTarget.style.borderColor = 'var(--amber)'
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'transparent'
+                                e.currentTarget.style.color = 'var(--text-secondary)'
+                                e.currentTarget.style.borderColor = 'var(--border)'
+                              }}
+                            >
+                              Run →
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <HistoryPanel history={history} onSelect={selectFromHistory} onDelete={removeFromHistory} activeForecastId={forecast?.forecast_id} />
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Centre column: chart */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+            {forecast && !showCompareChart && (
+              <div style={{ padding: '14px 20px', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+                <div>
+                  <p style={{ fontSize: 10, fontFamily: 'var(--font-display)', color: 'var(--text-tertiary)', letterSpacing: '0.08em', marginBottom: 4 }}>PRODUCT</p>
+                  <p style={{ fontSize: 20, fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--text-primary)' }}>{forecast.product_id}</p>
+                </div>
+                <div style={{ width: 1, height: 32, background: 'var(--border)', flexShrink: 0 }} />
+                <div>
+                  <p style={{ fontSize: 10, fontFamily: 'var(--font-display)', color: 'var(--text-tertiary)', letterSpacing: '0.08em', marginBottom: 4 }}>AVG FORECAST</p>
+                  <p style={{ fontSize: 20, fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--amber)' }}>
+                    {fmtNum(forecast.point_forecast.reduce((a, b) => a + b, 0) / forecast.point_forecast.length)}{' '}
+                    <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>units/day</span>
+                  </p>
+                </div>
+                <div style={{ width: 1, height: 32, background: 'var(--border)', flexShrink: 0 }} />
+                <StatusBadge segment={forecast.segment} />
+                <div style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-tertiary)', fontFamily: 'var(--font-display)' }}>
+                  {fmtShortDate(forecast.forecast_dates[0])} → {fmtShortDate(forecast.forecast_dates.at(-1))}
+                </div>
+              </div>
+            )}
+
+            {forecast && !showCompareChart && (
+              <ForecastTakeaway forecast={forecast} />
+            )}
+
+            {showCompareChart && (
+              <div style={{ padding: '14px 20px', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#4a9eff' }} />
+                  <span style={{ fontSize: 13, fontFamily: 'var(--font-display)', fontWeight: 600, color: 'var(--text-primary)' }}>{forecast.product_id}</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>avg {fmtNum(forecast.point_forecast.reduce((a,b)=>a+b,0)/forecast.point_forecast.length)}</span>
+                </div>
+                <span style={{ color: 'var(--border)' }}>vs</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f5a623' }} />
+                  <span style={{ fontSize: 13, fontFamily: 'var(--font-display)', fontWeight: 600, color: 'var(--text-primary)' }}>{compareForecast.product_id}</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>avg {fmtNum(compareForecast.point_forecast.reduce((a,b)=>a+b,0)/compareForecast.point_forecast.length)}</span>
+                </div>
+                <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-tertiary)', fontFamily: 'var(--font-display)' }}>
+                  {forecast.horizon}d horizon
+                </span>
+              </div>
+            )}
+
+            <div style={PANEL_STYLE}>
+              <div style={PANEL_HEADER}>
+                <span style={PANEL_TITLE}>
+                  {showCompareChart ? 'Product Comparison' : forecast ? `${forecast.horizon}d Demand Forecast` : 'Demand Forecast'}
+                </span>
+                {forecast && (
+                  <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-tertiary)' }}>
+                    {forecast.product_id} · {forecast.horizon}d horizon
+                  </span>
+                )}
+              </div>
+              <div style={{ padding: '16px' }}>
+                {(loading || compareLoading) ? (
+                  <InferenceTelemetryDeck />
+                ) : showCompareChart ? (
+                  <CompareChart forecastA={forecast} forecastB={compareForecast} />
+                ) : forecast ? (
+                  <ForecastChart forecast={forecast} />
+                ) : (
+                  <ForecastStandbyDeck
+                    products={products}
+                    onSelectAndRun={handleSelectAndRun}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Right column: metrics */}
+          <div style={PANEL_STYLE}>
+            <div style={PANEL_HEADER}>
+              <span style={PANEL_TITLE}>Model Metrics</span>
+              {forecast && (
+                <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--amber)', letterSpacing: '0.06em' }}>
+                  ACTIVE
+                </span>
+              )}
+            </div>
+            <div style={{ padding: 16 }}>
+              {forecast ? (
+                <MetricsPanel forecast={forecast} />
+              ) : (
+                <MetricsStandbyDeck />
+              )}
+            </div>
+          </div>
+        </div>
+
+        {showEmail && forecast && (
+          <EmailModal sessionId={sessionId} forecast={forecast} onClose={() => setShowEmail(false)} />
+        )}
+      </div>
     </div>
   )
 }
