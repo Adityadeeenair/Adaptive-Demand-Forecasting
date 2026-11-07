@@ -20,6 +20,34 @@ const MODEL_OPTIONS = [
   { key: 'lightgbm',      label: 'LightGBM',      color: GREEN },
 ]
 
+const MODEL_INSIGHTS = {
+  ensemble: {
+    tag: 'RECOMMENDED FOR PLANNING',
+    text: 'Optimal NNLS combination of Random Forest, XGBoost & LightGBM. Minimizes overall error across all demand regimes.',
+    color: AMBER,
+  },
+  random_forest: {
+    tag: 'BAGGING BASELINE',
+    text: 'Ensemble of decision trees. Exceptional stability and resistance to outlier sales noise.',
+    color: BLUE,
+  },
+  xgboost: {
+    tag: 'GRADIENT BOOSTING',
+    text: 'Sequential tree optimizer. Strongest performance on complex trend shifts and non-linear patterns.',
+    color: '#9b59b6',
+  },
+  lightgbm: {
+    tag: 'HISTOGRAM BOOSTING',
+    text: 'Fast leaf-wise boosting. Highly effective at capturing localized seasonal peaks and promotional spikes.',
+    color: GREEN,
+  },
+  compare: {
+    tag: 'MULTI-MODEL OVERLAY',
+    text: 'Overlaying all 4 machine learning model trajectories simultaneously against historical sales.',
+    color: 'var(--text-secondary)',
+  },
+}
+
 function ModelToggle({ active, onChange }) {
   return (
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -118,7 +146,7 @@ function CustomTooltip({ active, payload, label, activeModel }) {
       )}
       {lower != null && upper != null && (
         <p style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 6, paddingTop: 6, borderTop: '1px solid var(--border)' }}>
-          80% band: {fmtNum(lower)} – {fmtNum(upper)}
+          80% safety corridor: <span style={{ color: AMBER, fontWeight: 600 }}>{fmtNum(lower)} – {fmtNum(upper)}</span> units
         </p>
       )}
     </div>
@@ -238,10 +266,44 @@ export default function ForecastChart({ forecast }) {
           <ModelToggle active={activeModel} onChange={setActiveModel} />
         )}
         <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
-          <ToggleChip label="80% Band"   active={showBand}  onClick={() => setShowBand((v) => !v)}  color={AMBER} />
-          <ToggleChip label="Trend Line" active={showTrend} onClick={() => setShowTrend((v) => !v)} color={GREEN} />
+          <ToggleChip label="80% Band" active={showBand} onClick={() => setShowBand((v) => !v)} color={AMBER} title="80% prediction corridor: 8 out of 10 actual orders fall within this shaded region" />
+          <ToggleChip label="Trend Line" active={showTrend} onClick={() => setShowTrend((v) => !v)} color={GREEN} title="7-day rolling sales trendline" />
         </div>
       </div>
+
+      {/* Model Explainer Bar */}
+      {MODEL_INSIGHTS[activeModel] && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: '8px 12px',
+          marginBottom: 12,
+          background: 'rgba(255, 255, 255, 0.02)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-sm)',
+          fontSize: 11,
+          lineHeight: 1.4,
+        }}>
+          <span style={{
+            fontSize: 9,
+            fontFamily: 'var(--font-display)',
+            fontWeight: 700,
+            letterSpacing: '0.08em',
+            padding: '2px 6px',
+            borderRadius: 3,
+            color: MODEL_INSIGHTS[activeModel].color,
+            background: `${MODEL_INSIGHTS[activeModel].color}18`,
+            border: `1px solid ${MODEL_INSIGHTS[activeModel].color}44`,
+            flexShrink: 0,
+          }}>
+            {MODEL_INSIGHTS[activeModel].tag}
+          </span>
+          <span style={{ color: 'var(--text-secondary)', fontSize: 11 }}>
+            {MODEL_INSIGHTS[activeModel].text}
+          </span>
+        </div>
+      )}
 
       {/* Chart */}
       <div style={{ width: '100%', height: 360 }}>
@@ -399,10 +461,11 @@ export default function ForecastChart({ forecast }) {
 
 // ── Small helpers ─────────────────────────────────────────────────────────────
 
-function ToggleChip({ label, active, onClick, color }) {
+function ToggleChip({ label, active, onClick, color, title }) {
   return (
     <button
       onClick={onClick}
+      title={title}
       style={{
         padding: '4px 10px',
         borderRadius: 5,

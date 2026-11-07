@@ -98,6 +98,72 @@ function EmailModal({ sessionId, forecast, onClose }) {
   )
 }
 
+// ── Forecast Takeaway Banner ──────────────────────────────────────────────────
+function ForecastTakeaway({ forecast }) {
+  if (!forecast || !forecast.point_forecast?.length) return null
+
+  const pf = forecast.point_forecast
+  const hs = forecast.history_sales || []
+  const avgFc = pf.reduce((a, b) => a + b, 0) / pf.length
+  const recentHist = hs.slice(-Math.min(hs.length, pf.length))
+  const avgHist = recentHist.length ? recentHist.reduce((a, b) => a + b, 0) / recentHist.length : avgFc
+  const pct = avgHist > 0 ? ((avgFc - avgHist) / avgHist) * 100 : 0
+
+  const maxFc = Math.max(...pf)
+  const peakIdx = pf.indexOf(maxFc)
+  const peakDate = forecast.forecast_dates?.[peakIdx] ? fmtShortDate(forecast.forecast_dates[peakIdx]) : null
+
+  let tone = '#f5a623'
+  let label = 'Steady Run-Rate'
+  let actionAdvice = ''
+
+  if (pct >= 5) {
+    tone = '#2ecc71'
+    label = `Trending Up (+${pct.toFixed(1)}%)`
+    actionAdvice = `Expect volume expansion vs recent run-rate. Peak load projected on ${peakDate} (~${fmtNum(maxFc)} units). Place replenishment orders 2–3 days ahead to prevent stockouts.`
+  } else if (pct <= -5) {
+    tone = '#4a9eff'
+    label = `Trending Down (${pct.toFixed(1)}%)`
+    actionAdvice = `Projected order pace is easing (~${fmtNum(avgFc)} units/day). Maintain lean safety stock to avoid tied-up working capital.`
+  } else {
+    tone = 'var(--amber)'
+    label = 'Consistent Run-Rate'
+    actionAdvice = `Demand stays balanced near baseline (~${fmtNum(avgFc)} units/day). Suitable for automated scheduled reordering with standard safety buffer.`
+  }
+
+  return (
+    <div style={{
+      padding: '12px 18px',
+      background: 'rgba(255, 255, 255, 0.02)',
+      border: `1px solid ${tone}33`,
+      borderLeft: `3px solid ${tone}`,
+      borderRadius: 'var(--radius-md)',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 12,
+    }}>
+      <span style={{
+        fontSize: 9,
+        fontFamily: 'var(--font-display)',
+        fontWeight: 700,
+        color: tone,
+        background: `${tone}18`,
+        border: `1px solid ${tone}44`,
+        padding: '3px 8px',
+        borderRadius: 4,
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+        flexShrink: 0,
+      }}>
+        {label}
+      </span>
+      <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>
+        {actionAdvice}
+      </p>
+    </div>
+  )
+}
+
 // ── Compact compare product selector ─────────────────────────────────────────
 function CompareSelector({ products, sessionId, horizon, onCompare, onClear, loading, compareForecast }) {
   const [store, setStore] = useState('')
@@ -308,6 +374,10 @@ export default function Dashboard({ sessionId, summary, onForecastUpdate }) {
                 {fmtShortDate(forecast.forecast_dates[0])} → {fmtShortDate(forecast.forecast_dates.at(-1))}
               </div>
             </div>
+          )}
+
+          {forecast && !showCompareChart && (
+            <ForecastTakeaway forecast={forecast} />
           )}
 
           {showCompareChart && (

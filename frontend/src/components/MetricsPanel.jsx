@@ -54,14 +54,14 @@ export default function MetricsPanel({ forecast }) {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-              <div>
-                <p style={{ fontSize: 9, color: 'var(--text-tertiary)', fontFamily: 'var(--font-display)', letterSpacing: '0.06em', marginBottom: 2 }}>WMAPE</p>
+              <div title="Weighted Mean Absolute Percentage Error (overall forecast error — lower is better)">
+                <p style={{ fontSize: 9, color: 'var(--text-tertiary)', fontFamily: 'var(--font-display)', letterSpacing: '0.06em', marginBottom: 2 }}>WMAPE ⓘ</p>
                 <p style={{ fontSize: 16, fontFamily: 'var(--font-display)', fontWeight: 700, color: isBest ? 'var(--amber)' : 'var(--text-primary)' }}>
                   {fmtPct(metrics.wmape)}
                 </p>
               </div>
-              <div>
-                <p style={{ fontSize: 9, color: 'var(--text-tertiary)', fontFamily: 'var(--font-display)', letterSpacing: '0.06em', marginBottom: 2 }}>MAE</p>
+              <div title="Mean Absolute Error (average deviation in units)">
+                <p style={{ fontSize: 9, color: 'var(--text-tertiary)', fontFamily: 'var(--font-display)', letterSpacing: '0.06em', marginBottom: 2 }}>MAE ⓘ</p>
                 <p style={{ fontSize: 16, fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--text-primary)' }}>
                   {fmtNum(metrics.mae, 2)}
                 </p>
@@ -76,8 +76,9 @@ export default function MetricsPanel({ forecast }) {
       })}
 
       {pi && (
-        <div style={{ padding: '10px 14px', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>80% band coverage</span>
+        <div style={{ padding: '10px 14px', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+          title="Empirical coverage: percentage of actual orders that landed within the 80% safety corridor">
+          <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>80% band coverage ⓘ</span>
           <span style={{ fontFamily: 'var(--font-display)', fontSize: 12, color: 'var(--green)', fontWeight: 700 }}>
             {fmtPct(pi.actual_coverage)}
           </span>
